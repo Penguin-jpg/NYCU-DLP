@@ -51,7 +51,6 @@ def derivative_relu(x):
 
 
 # loss function (y: ground-truth, y_hat: prediction) and derivative
-# because this is a classification task, we use binary cross-entropy
 def binary_cross_entropy(y, y_hat):
     # calculate like this because input one data point at a time
     return -(y * np.log(y_hat) + (1 - y) * np.log(1 - y_hat))
@@ -110,12 +109,12 @@ class Network:
         self.values["a1"] = a1
 
         z2 = np.dot(self.w2, a1) + self.b2  # shape: (4, 1)
-        a2 = sigmoid(z2)
+        a2 = relu(z2)
         self.values["z2"] = z2
         self.values["a2"] = a2
 
         z3 = np.dot(self.w3, a2) + self.b3  # shape: (4, 1)
-        a3 = relu(z3)
+        a3 = sigmoid(z3)
         self.values["z3"] = z3
         self.values["a3"] = a3
 
@@ -197,7 +196,6 @@ class Network:
         # graident of output layer
         d_C_d_y_hat = derivative_sum_of_square_erorr(y, y_hat)
         # apply formula 1
-        # delta4 = d_C_d_y_hat * self.derivative_act(self.values["z4"])
         delta4 = d_C_d_y_hat * derivative_sigmoid(self.values["z4"])
         # apply formula 3
         # shape: (1, 1) dot (4, 1)^T = (1, 4)
@@ -208,7 +206,7 @@ class Network:
         # graident of hidden layer 2
         # apply formula 2
         # shape: (1, 4)^T dot (1, 1) = (4, 1)
-        delta3 = np.dot(self.w4.T, delta4) * derivative_relu(self.values["z3"])
+        delta3 = np.dot(self.w4.T, delta4) * derivative_sigmoid(self.values["z3"])
         # apply formula 3 and 4
         d_C_d_w3 = np.dot(delta3, self.values["a2"].T)  # shape: (4, 1) dot (4, 1)^T = (4, 4)
         d_C_d_b3 = delta3
@@ -216,7 +214,7 @@ class Network:
         # graident of hidden layer 1
         # apply formula 2
         # shape: (4, 4)^T dot (4, 1) = (4, 1)
-        delta2 = np.dot(self.w3.T, delta3) * derivative_sigmoid(self.values["z2"])
+        delta2 = np.dot(self.w3.T, delta3) * derivative_relu(self.values["z2"])
         # apply formula 3 and 4
         d_C_d_w2 = np.dot(delta2, self.values["a1"].T)  # shape: (4, 1) dot (4, 1)^T = (4, 4)
         d_C_d_b2 = delta2
@@ -276,7 +274,16 @@ def show_results(x, y, y_hat):
     plt.show()
 
 
+def show_training_plot(num_epochs, losses):
+    plt.title("Trainging loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.plot(range(num_epochs), losses)
+    plt.show()
+
+
 def train_loop(model, inputs, labels, num_epochs):
+    losses = []
     for epoch in range(num_epochs):
         loss = 0
         for input, label in zip(inputs, labels):
@@ -294,9 +301,12 @@ def train_loop(model, inputs, labels, num_epochs):
             model.backward(label, y_hat)
 
         loss /= len(inputs)
+        losses.append(loss)
 
-        if epoch % 5000 == 0:
+        if epoch % 5000 == 0 or epoch == num_epochs - 1:
             print(f"epoch {epoch} loss : {loss}")
+
+    show_training_plot(num_epochs, losses)
 
 
 def test(model, inputs, labels):
@@ -310,7 +320,6 @@ def test(model, inputs, labels):
         y_hat = model.forward(input)
         results.append(y_hat[0][0])
         predictions.append(np.round(y_hat))
-        # loss += binary_cross_entropy(label, y_hat)
         loss += sum_of_square_erorr(label, y_hat)
         accuracy += 1 if np.round(y_hat) == label else 0
         print(f"Iter{i} |   Ground truth: {label[0]:.1f} |   Prediction: {y_hat[0][0]:.5f} |")
@@ -319,7 +328,7 @@ def test(model, inputs, labels):
     accuracy /= len(inputs)
     print(f"loss={loss:.5f} accuracy={accuracy * 100:.2f}%")
     print("test results:")
-    print(results)
+    print(np.array([results]))
 
     show_results(inputs, labels, predictions)
 
@@ -327,8 +336,8 @@ def test(model, inputs, labels):
 if __name__ == "__main__":
     # constants
     DATASET_SIZE = 100
-    NUM_EPOCHS = 30000
-    LR = 1e-2
+    NUM_EPOCHS = 15000
+    LR = 1e-3
 
     # create network
     net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=LR)
