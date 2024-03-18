@@ -70,6 +70,34 @@ def derivative_sum_of_square_erorr(y, y_hat):
     return y_hat - y
 
 
+def show_results(x, y, y_hat):
+    plt.subplot(1, 2, 1)
+    plt.title("Ground truth", fontsize=18)
+    for i in range(len(x)):
+        if y[i] == 0:
+            plt.plot(x[i][0], x[i][1], "ro")
+        else:
+            plt.plot(x[i][0], x[i][1], "bo")
+
+    plt.subplot(1, 2, 2)
+    plt.title("Predict result", fontsize=18)
+    for i in range(len(x)):
+        if y_hat[i] == 0:
+            plt.plot(x[i][0], x[i][1], "ro")
+        else:
+            plt.plot(x[i][0], x[i][1], "bo")
+
+    plt.show()
+
+
+def show_training_plot(num_epochs, losses):
+    plt.title("Trainging loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.plot(range(num_epochs), losses)
+    plt.show()
+
+
 class Network:
     def __init__(self, input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-2):
         # every layer contains its own weight and bias
@@ -125,65 +153,6 @@ class Network:
 
         return y
 
-    # def backward(self, y, y_hat):
-    #     # backprogagation starts from output layer (using chain rule)
-
-    #     # the graident of output layer:
-    #     # dL/d(w4) = dL/d(y_hat) * d(y_hat)/d(z4) * d(z4)/d(w4)
-    #     # dL/d(b4) = dL/d(y_hat) * d(y_hat)/d(z4) * d(z4)/d(b4)
-    #     # d_L_d_y_hat = derivative_binary_cross_entropy(y, y_hat)  # y_hat = a4, shape: (1, 1)
-    #     d_L_d_y_hat = y_hat - y
-    #     d_y_hat_d_z4 = self.derivative_act(self.values["z4"])  # d(a4)/d(z4)=act'(z4), shape: (1, 1)
-    #     d_z4_d_w4 = self.values["a3"]  # d(z4)/d(w4)=a3, shape: (4, 1)
-    #     # d_L_d_z4 = np.dot(d_L_d_y_hat, d_y_hat_d_z4)  # shape: (1, 1)
-    #     d_L_d_z4 = np.dot(d_L_d_y_hat, d_y_hat_d_z4)  # shape: (1, 1)
-    #     d_L_d_w4 = np.dot(d_L_d_z4, d_z4_d_w4.T)  # shape: (1, 1) dot (1, 4) = (1, 4)
-    #     # d_z4_d_b4 = 1  # d(z4)/d(b4)=1, shape: (1)
-    #     # d_L_d_b4 = d_L_d_z4 * d_z4_d_b4  # shape: (1, 1)
-
-    #     # the graident of hidden layer 2:
-    #     # dL/d(w3) = dL/d(z4) * d(z4)/d(a3) * d(a3)/d(z3) * d(z3)/d(w3)
-    #     # dL/d(b3) = dL/d(z4) * d(z4)/d(a3) * d(a3)/d(z3) * d(z3)/d(b3)
-    #     d_z4_d_a3 = self.w4  # d(z4)/d(a3)=w4  (a3 is the "x"), shape: (1, 4)
-    #     d_a3_d_z3 = self.derivative_act(self.values["z3"])  # d(a3)/d(z3)=act'(z3), shape: (4, 1)
-    #     d_z3_d_w3 = self.values["a2"]  # d(z3)/d(w3)=a2, shape: (4, 1)
-    #     d_L_d_z3 = np.dot(np.dot(d_L_d_z4, d_z4_d_a3), d_a3_d_z3)  # shape: (1, 1) dot (1, 4) dot (4, 1) = (1, 1)
-    #     d_L_d_w3 = np.dot(d_L_d_z3, d_z3_d_w3.T)  # shape: (1, 1) dot (1, 4) = (1, 4)
-    #     # d_z3_d_b3 = 1  # d(z3)/d(b3)=1, shape: (1)
-    #     # d_L_d_b3 = d_L_d_z3 * d_z3_d_b3  # shape: (1, 1)
-
-    #     # the graident of hidden layer 1:
-    #     # dL/d(w2) = dL/d(z3) * d(z3)/d(a2) * d(a2)/d(z2) * d(z2)/d(w2)
-    #     # dL/d(b2) = dL/d(z3) * d(z3)/d(a2) * d(a2)/d(z2) * d(z2)/d(b2)
-    #     d_z3_d_a2 = self.w3  # d(z3)/d(a2)=w3 (a2 is the "x"), shape: (4, 4)
-    #     d_a2_d_z2 = self.derivative_act(self.values["z2"])  # d(a2)/d(z2)=act'(z2), shape: (4, 1)
-    #     d_z2_d_w2 = self.values["a1"]  # d(z2)/d(w2)=a1, shape: (4, 1)
-    #     d_L_d_z2 = np.dot(d_L_d_z3 * d_z3_d_a2, d_a2_d_z2)  # shape: (1, 1) * (4, 4) dot (4, 1) = (4, 1)
-    #     d_L_d_w2 = np.dot(d_L_d_z2, d_z2_d_w2.T)  # shape: (1, 1) dot (1, 4) = (1, 4)
-    #     # d_z2_d_b2 = 1  # d(z3)/d(b3)=1, shape: (1)
-    #     # d_L_d_b2 = d_L_d_z2 * d_z2_d_b2  # shape: (1, 4)
-
-    #     # the graident of input layer:
-    #     # dL/d(w1) = dL/d(z2) * d(z2)/d(a1) * d(a1)/d(z1) * d(z1)/d(w1)
-    #     # dL/d(b1) = dL/d(z2) * d(z2)/d(a1) * d(a1)/d(z1) * d(z1)/d(b1)
-    #     d_z2_d_a1 = self.w2  # d(z2)/d(a1)=w2 (a1 is the "x"), shape: (4, 4)
-    #     d_a1_d_z1 = self.derivative_act(self.values["z1"])  # d(a1)/d(z1)=act'(z1), shape: (4, 1)
-    #     d_z1_d_w1 = self.values["x"]  # d(z1)/d(w1)=x, shape: (2, 1)
-    #     d_L_d_z1 = np.dot(np.dot(d_L_d_z2.T, d_z2_d_a1), d_a1_d_z1)  # shape: (1, 4) dot (4, 4) dot (4, 1) = (1, 1)
-    #     d_L_d_w1 = np.dot(d_L_d_z1, d_z1_d_w1.T)  # shape: (1, 1)dot (1, 2) = (1, 2)
-    #     # d_z1_d_b1 = 1  # d(z1)/d(b1)=1, shape: (1)
-    #     # d_L_d_b1 = d_L_d_z1 * d_z1_d_b1  # shape: (1, 2)
-
-    #     # update weights and biases
-    #     self.w1 -= self.lr * d_L_d_w1
-    #     # self.b1 -= self.lr * d_L_d_b1
-    #     self.w2 -= self.lr * d_L_d_w2
-    #     # self.b2 -= self.lr * d_L_d_b2
-    #     self.w3 -= self.lr * d_L_d_w3
-    #     # self.b3 -= self.lr * d_L_d_b3
-    #     self.w4 -= self.lr * d_L_d_w4
-    #     # self.b4 -= self.lr * d_L_d_b4
-
     def backward(self, y, y_hat):
         # to perform backpropagation, we need to use four formulas, I do the proof in the report
         # 1. delta^L = dC/d(y_hat) * derivative_act(z^L)
@@ -237,6 +206,109 @@ class Network:
         self.w4 -= self.lr * d_C_d_w4
         self.b4 -= self.lr * d_C_d_b4
 
+    def backward_SGD(self, y, y_hat):
+        # to perform backpropagation, we need to use four formulas, I do the proof in the report
+        # 1. delta^L = dC/d(y_hat) * derivative_act(z^L)
+        #    - delta: error, C: loss (cost), L: the last layer, *: element-wise multiplication
+        # 2. delta^l = ((w^{l+1})^T dot delta^{l+1}) * derivative_act(z^l)
+        #    - dot: dot product (or matrix multiplication)
+        # 3. dC/d(w^l) = a^{l-1} dot delta^l (graident for weight)
+        # 4. dC/d(b^l) = delta^l (graident for bias)
+
+        # graident of output layer
+        d_C_d_y_hat = derivative_sum_of_square_erorr(y, y_hat)
+        # apply formula 1
+        delta4 = d_C_d_y_hat * derivative_sigmoid(self.values["z4"])
+        # apply formula 3
+        # shape: (1, 1) dot (4, 1)^T = (1, 4)
+        d_C_d_w4 = np.dot(d_C_d_y_hat, self.values["a3"].T)
+        # apply formula 4
+        d_C_d_b4 = delta4
+
+        # graident of hidden layer 2
+        # apply formula 2
+        # shape: (1, 4)^T dot (1, 1) = (4, 1)
+        delta3 = np.dot(self.w4.T, delta4) * derivative_sigmoid(self.values["z3"])
+        # apply formula 3 and 4
+        d_C_d_w3 = np.dot(delta3, self.values["a2"].T)  # shape: (4, 1) dot (4, 1)^T = (4, 4)
+        d_C_d_b3 = delta3
+
+        # graident of hidden layer 1
+        # apply formula 2
+        # shape: (4, 4)^T dot (4, 1) = (4, 1)
+        delta2 = np.dot(self.w3.T, delta3) * derivative_relu(self.values["z2"])
+        # apply formula 3 and 4
+        d_C_d_w2 = np.dot(delta2, self.values["a1"].T)  # shape: (4, 1) dot (4, 1)^T = (4, 4)
+        d_C_d_b2 = delta2
+
+        # gradient of input layer
+        # apply formula 2
+        # shape: (4, 4)^T dot (4, 1) = (4, 1)
+        delta1 = np.dot(self.w2.T, delta2) * derivative_relu(self.values["z1"])
+        # apply formula 3 and 4
+        d_C_d_w1 = np.dot(delta1, self.values["x"].T)  # shape: (4, 1) dot (2, 1)^T = (4, 2)
+        d_C_d_b1 = delta1
+
+        return {
+            "w1": d_C_d_w1,
+            "b1": d_C_d_b1,
+            "w2": d_C_d_w2,
+            "b2": d_C_d_b2,
+            "w3": d_C_d_w3,
+            "b3": d_C_d_b3,
+            "w4": d_C_d_w4,
+            "b4": d_C_d_b4,
+        }
+
+    def SGD(self, inputs, labels, num_epochs, batch_size):
+        rng = np.random.default_rng(seed=42)
+        losses = []
+
+        for epoch in range(num_epochs):
+            # for every epoch,
+            random_indices = rng.choice(len(inputs), size=len(inputs), replace=False)
+            # split mini batches
+            batches = np.array_split(random_indices, len(inputs) // batch_size)
+            # loss
+            loss = 0
+
+            for batch in batches:
+                # assemble mini batch
+                batched_x = inputs[batch]
+                batched_y = labels[batch]
+
+                # accumulate gradients from each batch, then update weights and biases
+                accumlated_graidents = {}
+                for x, y in zip(batched_x, batched_y):
+                    x = x.reshape(2, 1)
+                    y_hat = self.forward(x)
+                    loss += sum_of_square_erorr(y, y_hat)
+                    graidents = self.backward_SGD(y, y_hat)
+
+                    for k, v in graidents.items():
+                        if k in accumlated_graidents:
+                            accumlated_graidents[k] += v
+                        else:
+                            accumlated_graidents[k] = v
+
+                # because we are not using the whole dataset, we need to average the graidents
+                self.w1 -= (self.lr / len(batch)) * accumlated_graidents["w1"]
+                self.b1 -= (self.lr / len(batch)) * accumlated_graidents["b1"]
+                self.w2 -= (self.lr / len(batch)) * accumlated_graidents["w2"]
+                self.b2 -= (self.lr / len(batch)) * accumlated_graidents["b2"]
+                self.w3 -= (self.lr / len(batch)) * accumlated_graidents["w3"]
+                self.b3 -= (self.lr / len(batch)) * accumlated_graidents["b3"]
+                self.w4 -= (self.lr / len(batch)) * accumlated_graidents["w4"]
+                self.b4 -= (self.lr / len(batch)) * accumlated_graidents["b4"]
+
+            loss /= len(inputs)
+            losses.append(loss)
+
+            if epoch % 5000 == 0 or epoch == num_epochs - 1:
+                print(f"epoch {epoch} loss : {loss}")
+
+        show_training_plot(num_epochs, losses)
+
     def save(self, model_path):
         import os
 
@@ -252,34 +324,6 @@ class Network:
         self.w2 = np.load(os.path.join(model_path, "w2.npy"))
         self.w3 = np.load(os.path.join(model_path, "w3.npy"))
         self.w4 = np.load(os.path.join(model_path, "w4.npy"))
-
-
-def show_results(x, y, y_hat):
-    plt.subplot(1, 2, 1)
-    plt.title("Ground truth", fontsize=18)
-    for i in range(len(x)):
-        if y[i] == 0:
-            plt.plot(x[i][0], x[i][1], "ro")
-        else:
-            plt.plot(x[i][0], x[i][1], "bo")
-
-    plt.subplot(1, 2, 2)
-    plt.title("Predict result", fontsize=18)
-    for i in range(len(x)):
-        if y_hat[i] == 0:
-            plt.plot(x[i][0], x[i][1], "ro")
-        else:
-            plt.plot(x[i][0], x[i][1], "bo")
-
-    plt.show()
-
-
-def show_training_plot(num_epochs, losses):
-    plt.title("Trainging loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.plot(range(num_epochs), losses)
-    plt.show()
 
 
 def train_loop(model, inputs, labels, num_epochs):
@@ -336,7 +380,11 @@ def test(model, inputs, labels):
 if __name__ == "__main__":
     # constants
     DATASET_SIZE = 100
-    NUM_EPOCHS = 15000
+    BATCH_SIZE = 20
+    # BATCH_SIZE = 3
+    # NUM_EPOCHS = 15000
+    NUM_EPOCHS = 30000
+    # NUM_EPOCHS = 60000
     LR = 1e-3
 
     # create network
@@ -344,10 +392,12 @@ if __name__ == "__main__":
 
     # train network (linear dataset)
     inputs, labels = generate_linear(DATASET_SIZE)
-    train_loop(net, inputs, labels, NUM_EPOCHS)
+    net.SGD(inputs, labels, NUM_EPOCHS, BATCH_SIZE)
+    # train_loop(net, inputs, labels, NUM_EPOCHS)
     test(net, inputs, labels)
 
     # xor dataset
     # inputs, labels = generate_XOR_easy()
+    # net.SGD(inputs, labels, NUM_EPOCHS, BATCH_SIZE)
     # train_loop(net, inputs, labels, NUM_EPOCHS)
     # test(net, inputs, labels)
