@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+np.random.seed(100)
+
 
 # dataset generator function
 def generate_linear(n=100):
@@ -378,26 +380,21 @@ def test(model, inputs, labels):
 
 
 if __name__ == "__main__":
-    # constants
-    DATASET_SIZE = 100
-    BATCH_SIZE = 20
-    # BATCH_SIZE = 3
-    # NUM_EPOCHS = 15000
-    NUM_EPOCHS = 30000
-    # NUM_EPOCHS = 60000
-    LR = 1e-3
-
     # create network
-    net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=LR)
+    net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-3)
 
     # train network (linear dataset)
-    inputs, labels = generate_linear(DATASET_SIZE)
-    net.SGD(inputs, labels, NUM_EPOCHS, BATCH_SIZE)
-    # train_loop(net, inputs, labels, NUM_EPOCHS)
+    inputs, labels = generate_linear()
+    # net.SGD(inputs, labels, 30000, 20)
+    train_loop(net, inputs, labels, 15000)
     test(net, inputs, labels)
+    # net.save("weights/linear")
+    # net.load("weights/linear")
 
     # xor dataset
-    # inputs, labels = generate_XOR_easy()
-    # net.SGD(inputs, labels, NUM_EPOCHS, BATCH_SIZE)
-    # train_loop(net, inputs, labels, NUM_EPOCHS)
-    # test(net, inputs, labels)
+    inputs, labels = generate_XOR_easy()
+    # net.SGD(inputs, labels, 30000, 3)
+    train_loop(net, inputs, labels, 30000)
+    test(net, inputs, labels)
+    # net.save("weights/xor")
+    # net.load("weights/xor")
