@@ -380,18 +380,17 @@ def test(model, inputs, labels):
 
 
 if __name__ == "__main__":
-    # create network
-    net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-3)
-
     # train network (linear dataset)
+    net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-3)
     inputs, labels = generate_linear()
     # net.SGD(inputs, labels, 30000, 20)
     train_loop(net, inputs, labels, 15000)
     test(net, inputs, labels)
-    # net.save("weights/linear")
     # net.load("weights/linear")
+    # net.save("weights/linear")
 
     # xor dataset
+    net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-3)
     inputs, labels = generate_XOR_easy()
     # net.SGD(inputs, labels, 30000, 3)
     train_loop(net, inputs, labels, 30000)
