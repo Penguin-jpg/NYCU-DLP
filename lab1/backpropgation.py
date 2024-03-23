@@ -36,7 +36,7 @@ def generate_XOR_easy():
 
 # activation functions and derivatives
 def sigmoid(x):
-    return 1.0 / (1.0 + np.exp(-x))
+    return 1.0 / (1.0 + np.exp(-x + 1e-8))
 
 
 # derivation from https://math.stackexchange.com/questions/78575/derivative-of-sigmoid-function-sigma-x-frac11e-x
@@ -55,12 +55,12 @@ def derivative_relu(x):
 # loss function (y: ground-truth, y_hat: prediction) and derivative
 def binary_cross_entropy(y, y_hat):
     # calculate like this because input one data point at a time
-    return -(y * np.log(y_hat) + (1 - y) * np.log(1 - y_hat))
+    return -np.mean(y * np.log(y_hat + 1e-8) + (1 - y) * np.log(1 - y_hat + 1e-8))
 
 
 def derivative_binary_cross_entropy(y, y_hat):
     # dC/d(y_hat) = -(y/y_hat - (1-y)/(1-y_hat)) = -(y-y_hat)/(y_hat * (1-y_hat))
-    return -(y / y_hat - (1 - y) / (1 - y_hat))
+    return -(y / (y_hat + 1e-8) - (1 - y) / (1 - y_hat + 1e-8))
 
 
 def sum_of_square_erorr(y, y_hat):
@@ -129,26 +129,26 @@ class Network:
         self.values = {}
 
     def forward(self, x):
-        # shape of input: (2, 1) one data point at a time
+        # shape of input: (2, N)
         self.values["x"] = x
 
         # for each layer, calculate a=act(z=w^Tx+b)
-        z1 = np.dot(self.w1, x) + self.b1  # shape: (4, 1)
+        z1 = np.dot(self.w1, x) + self.b1  # shape: (4, N)
         a1 = relu(z1)
         self.values["z1"] = z1
         self.values["a1"] = a1
 
-        z2 = np.dot(self.w2, a1) + self.b2  # shape: (4, 1)
+        z2 = np.dot(self.w2, a1) + self.b2  # shape: (4, N)
         a2 = relu(z2)
         self.values["z2"] = z2
         self.values["a2"] = a2
 
-        z3 = np.dot(self.w3, a2) + self.b3  # shape: (4, 1)
+        z3 = np.dot(self.w3, a2) + self.b3  # shape: (4, N)
         a3 = sigmoid(z3)
         self.values["z3"] = z3
         self.values["a3"] = a3
 
-        z4 = np.dot(self.w4, a3) + self.b4  # shape: (1, 1)
+        z4 = np.dot(self.w4, a3) + self.b4  # shape: (1, N)
         y = sigmoid(z4)
         self.values["z4"] = z4
         self.values["a4"] = y
@@ -164,39 +164,42 @@ class Network:
         # 3. dC/d(w^l) = a^{l-1} dot delta^l (graident for weight)
         # 4. dC/d(b^l) = delta^l (graident for bias)
 
+        # batch size
+        N = y.shape[1]
+
         # graident of output layer
-        d_C_d_y_hat = derivative_sum_of_square_erorr(y, y_hat)
+        d_C_d_y_hat = derivative_binary_cross_entropy(y, y_hat)
         # apply formula 1
         delta4 = d_C_d_y_hat * derivative_sigmoid(self.values["z4"])
         # apply formula 3
-        # shape: (1, 1) dot (4, 1)^T = (1, 4)
-        d_C_d_w4 = np.dot(d_C_d_y_hat, self.values["a3"].T)
+        # shape: (1, N) dot (4, N)^T = (1, 4)
+        d_C_d_w4 = np.dot(d_C_d_y_hat, self.values["a3"].T) / N
         # apply formula 4
-        d_C_d_b4 = delta4
+        d_C_d_b4 = np.sum(delta4, axis=1, keepdims=True) / N
 
         # graident of hidden layer 2
         # apply formula 2
-        # shape: (1, 4)^T dot (1, 1) = (4, 1)
+        # shape: (1, 4)^T dot (1, N) = (4, N)
         delta3 = np.dot(self.w4.T, delta4) * derivative_sigmoid(self.values["z3"])
         # apply formula 3 and 4
-        d_C_d_w3 = np.dot(delta3, self.values["a2"].T)  # shape: (4, 1) dot (4, 1)^T = (4, 4)
-        d_C_d_b3 = delta3
+        d_C_d_w3 = np.dot(delta3, self.values["a2"].T) / N  # shape: (4, N) dot (4, N)^T = (4, 4)
+        d_C_d_b3 = np.sum(delta3, axis=1, keepdims=True) / N
 
         # graident of hidden layer 1
         # apply formula 2
-        # shape: (4, 4)^T dot (4, 1) = (4, 1)
+        # shape: (4, 4)^T dot (4, N) = (4, N)
         delta2 = np.dot(self.w3.T, delta3) * derivative_relu(self.values["z2"])
         # apply formula 3 and 4
-        d_C_d_w2 = np.dot(delta2, self.values["a1"].T)  # shape: (4, 1) dot (4, 1)^T = (4, 4)
-        d_C_d_b2 = delta2
+        d_C_d_w2 = np.dot(delta2, self.values["a1"].T) / N  # shape: (4, N) dot (4, N)^T = (4, 4)
+        d_C_d_b2 = np.sum(delta2, axis=1, keepdims=True) / N
 
         # gradient of input layer
         # apply formula 2
-        # shape: (4, 4)^T dot (4, 1) = (4, 1)
+        # shape: (4, 4)^T dot (4, N) = (4, N)
         delta1 = np.dot(self.w2.T, delta2) * derivative_relu(self.values["z1"])
         # apply formula 3 and 4
-        d_C_d_w1 = np.dot(delta1, self.values["x"].T)  # shape: (4, 1) dot (2, 1)^T = (4, 2)
-        d_C_d_b1 = delta1
+        d_C_d_w1 = np.dot(delta1, self.values["x"].T) / N  # shape: (4, N) dot (2, N)^T = (4, 2)
+        d_C_d_b1 = np.sum(delta1, axis=1, keepdims=True) / N
 
         # update weights and biases
         self.w1 -= self.lr * d_C_d_w1
@@ -208,108 +211,84 @@ class Network:
         self.w4 -= self.lr * d_C_d_w4
         self.b4 -= self.lr * d_C_d_b4
 
-    def backward_SGD(self, y, y_hat):
-        # to perform backpropagation, we need to use four formulas, I do the proof in the report
-        # 1. delta^L = dC/d(y_hat) * derivative_act(z^L)
-        #    - delta: error, C: loss (cost), L: the last layer, *: element-wise multiplication
-        # 2. delta^l = ((w^{l+1})^T dot delta^{l+1}) * derivative_act(z^l)
-        #    - dot: dot product (or matrix multiplication)
-        # 3. dC/d(w^l) = a^{l-1} dot delta^l (graident for weight)
-        # 4. dC/d(b^l) = delta^l (graident for bias)
-
-        # graident of output layer
-        d_C_d_y_hat = derivative_sum_of_square_erorr(y, y_hat)
-        # apply formula 1
-        delta4 = d_C_d_y_hat * derivative_sigmoid(self.values["z4"])
-        # apply formula 3
-        # shape: (1, 1) dot (4, 1)^T = (1, 4)
-        d_C_d_w4 = np.dot(d_C_d_y_hat, self.values["a3"].T)
-        # apply formula 4
-        d_C_d_b4 = delta4
-
-        # graident of hidden layer 2
-        # apply formula 2
-        # shape: (1, 4)^T dot (1, 1) = (4, 1)
-        delta3 = np.dot(self.w4.T, delta4) * derivative_sigmoid(self.values["z3"])
-        # apply formula 3 and 4
-        d_C_d_w3 = np.dot(delta3, self.values["a2"].T)  # shape: (4, 1) dot (4, 1)^T = (4, 4)
-        d_C_d_b3 = delta3
-
-        # graident of hidden layer 1
-        # apply formula 2
-        # shape: (4, 4)^T dot (4, 1) = (4, 1)
-        delta2 = np.dot(self.w3.T, delta3) * derivative_relu(self.values["z2"])
-        # apply formula 3 and 4
-        d_C_d_w2 = np.dot(delta2, self.values["a1"].T)  # shape: (4, 1) dot (4, 1)^T = (4, 4)
-        d_C_d_b2 = delta2
-
-        # gradient of input layer
-        # apply formula 2
-        # shape: (4, 4)^T dot (4, 1) = (4, 1)
-        delta1 = np.dot(self.w2.T, delta2) * derivative_relu(self.values["z1"])
-        # apply formula 3 and 4
-        d_C_d_w1 = np.dot(delta1, self.values["x"].T)  # shape: (4, 1) dot (2, 1)^T = (4, 2)
-        d_C_d_b1 = delta1
-
-        return {
-            "w1": d_C_d_w1,
-            "b1": d_C_d_b1,
-            "w2": d_C_d_w2,
-            "b2": d_C_d_b2,
-            "w3": d_C_d_w3,
-            "b3": d_C_d_b3,
-            "w4": d_C_d_w4,
-            "b4": d_C_d_b4,
-        }
-
-    def SGD(self, inputs, labels, num_epochs, batch_size):
-        rng = np.random.default_rng(seed=42)
+    def train(self, inputs, labels, num_epochs):
         losses = []
 
         for epoch in range(num_epochs):
-            # for every epoch,
-            random_indices = rng.choice(len(inputs), size=len(inputs), replace=False)
-            # split mini batches
-            batches = np.array_split(random_indices, len(inputs) // batch_size)
-            # loss
             loss = 0
 
-            for batch in batches:
-                # assemble mini batch
-                batched_x = inputs[batch]
-                batched_y = labels[batch]
+            # reshape input to (N, 2) and transpose so that it can be multiplied with weight
+            inputs = inputs.reshape(-1, 2).T
+            # prediction
+            y_hat = self.forward(inputs)
+            # calculate loss
+            loss = binary_cross_entropy(labels.T, y_hat)
+            # backpropagation
+            self.backward(labels.T, y_hat)
 
-                # accumulate gradients from each batch, then update weights and biases
-                accumlated_graidents = {}
-                for x, y in zip(batched_x, batched_y):
-                    x = x.reshape(2, 1)
-                    y_hat = self.forward(x)
-                    loss += sum_of_square_erorr(y, y_hat)
-                    graidents = self.backward_SGD(y, y_hat)
-
-                    for k, v in graidents.items():
-                        if k in accumlated_graidents:
-                            accumlated_graidents[k] += v
-                        else:
-                            accumlated_graidents[k] = v
-
-                # because we are not using the whole dataset, we need to average the graidents
-                self.w1 -= (self.lr / len(batch)) * accumlated_graidents["w1"]
-                self.b1 -= (self.lr / len(batch)) * accumlated_graidents["b1"]
-                self.w2 -= (self.lr / len(batch)) * accumlated_graidents["w2"]
-                self.b2 -= (self.lr / len(batch)) * accumlated_graidents["b2"]
-                self.w3 -= (self.lr / len(batch)) * accumlated_graidents["w3"]
-                self.b3 -= (self.lr / len(batch)) * accumlated_graidents["b3"]
-                self.w4 -= (self.lr / len(batch)) * accumlated_graidents["w4"]
-                self.b4 -= (self.lr / len(batch)) * accumlated_graidents["b4"]
-
-            loss /= len(inputs)
             losses.append(loss)
 
             if epoch % 5000 == 0 or epoch == num_epochs - 1:
                 print(f"epoch {epoch} loss : {loss}")
 
         show_training_plot(num_epochs, losses)
+
+    def train_SGD(self, inputs, labels, num_epochs, batch_size):
+        rng = np.random.default_rng(seed=42)
+        losses = []
+
+        for epoch in range(num_epochs):
+            loss = 0
+
+            # for every epoch, randomly shuffle the dataset
+            random_indices = rng.choice(len(inputs), size=len(inputs), replace=False)
+            # split mini batches
+            batches = np.array_split(random_indices, len(inputs) // batch_size)
+
+            for batch in batches:
+                # assemble mini batch
+                batched_x = inputs[batch]
+                batched_y = labels[batch]
+
+                batched_x = batched_x.reshape(-1, 2).T
+
+                y_hat = self.forward(batched_x)
+
+                loss += binary_cross_entropy(batched_y.T, y_hat)
+
+                self.backward(batched_y.T, y_hat)
+
+            # average over the number of batches
+            loss /= len(batches)
+            losses.append(loss)
+
+            if epoch % 5000 == 0 or epoch == num_epochs - 1:
+                print(f"epoch {epoch} loss : {loss}")
+
+        show_training_plot(num_epochs, losses)
+
+    def test(self, inputs, labels):
+        accuracy = 0
+        loss = 0
+        results = []
+        predictions = []
+
+        for i, (input, label) in enumerate(zip(inputs, labels)):
+            input = input.reshape(2, 1)
+            y_hat = self.forward(input)
+            results.append(y_hat[0][0])
+            predictions.append(np.round(y_hat))
+            loss += binary_cross_entropy(label, y_hat)
+            accuracy += 1 if np.round(y_hat) == label else 0
+            print(f"Iter{i} |   Ground truth: {label[0]:.1f} |   Prediction: {y_hat[0][0]:.5f} |")
+
+        loss /= len(inputs)
+        accuracy /= len(inputs)
+        print(f"loss={loss:.5f} accuracy={accuracy * 100:.2f}%")
+        print("test results:")
+        print(np.array([results]))
+
+        show_results(inputs, labels, predictions)
 
     def save(self, model_path):
         import os
@@ -328,72 +307,23 @@ class Network:
         self.w4 = np.load(os.path.join(model_path, "w4.npy"))
 
 
-def train_loop(model, inputs, labels, num_epochs):
-    losses = []
-    for epoch in range(num_epochs):
-        loss = 0
-        for input, label in zip(inputs, labels):
-            # input shape needs to be (2, 1) so that it can be multiplied with weight
-            # make shape of input (2, 1)
-            input = input.reshape(2, 1)
-
-            # feed to network
-            y_hat = model.forward(input)
-
-            # calculate loss
-            # loss += binary_cross_entropy(label, y_hat)
-            loss += sum_of_square_erorr(label, y_hat)
-
-            model.backward(label, y_hat)
-
-        loss /= len(inputs)
-        losses.append(loss)
-
-        if epoch % 5000 == 0 or epoch == num_epochs - 1:
-            print(f"epoch {epoch} loss : {loss}")
-
-    show_training_plot(num_epochs, losses)
-
-
-def test(model, inputs, labels):
-    accuracy = 0
-    loss = 0
-    results = []
-    predictions = []
-
-    for i, (input, label) in enumerate(zip(inputs, labels)):
-        input = input.reshape(2, 1)
-        y_hat = model.forward(input)
-        results.append(y_hat[0][0])
-        predictions.append(np.round(y_hat))
-        loss += sum_of_square_erorr(label, y_hat)
-        accuracy += 1 if np.round(y_hat) == label else 0
-        print(f"Iter{i} |   Ground truth: {label[0]:.1f} |   Prediction: {y_hat[0][0]:.5f} |")
-
-    loss /= len(inputs)
-    accuracy /= len(inputs)
-    print(f"loss={loss:.5f} accuracy={accuracy * 100:.2f}%")
-    print("test results:")
-    print(np.array([results]))
-
-    show_results(inputs, labels, predictions)
-
-
 if __name__ == "__main__":
     # train network (linear dataset)
-    net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-3)
+    # net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-4)
+    net = Network(input_dim=2, hidden_dims=[8, 8], output_dim=1, lr=1e-4)
     inputs, labels = generate_linear()
-    # net.SGD(inputs, labels, 30000, 20)
-    train_loop(net, inputs, labels, 15000)
-    test(net, inputs, labels)
+    # net.train(inputs, labels, 30000)
+    net.train_SGD(inputs, labels, 30000, 10)
+    net.test(inputs, labels)
     # net.load("weights/linear")
     # net.save("weights/linear")
 
     # xor dataset
-    net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-3)
+    # net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-3)
+    net = Network(input_dim=2, hidden_dims=[8, 8], output_dim=1, lr=1e-3)
     inputs, labels = generate_XOR_easy()
-    # net.SGD(inputs, labels, 30000, 3)
-    train_loop(net, inputs, labels, 30000)
-    test(net, inputs, labels)
+    # net.train(inputs, labels, 20000)
+    net.train_SGD(inputs, labels, 20000, 7)
+    net.test(inputs, labels)
     # net.save("weights/xor")
     # net.load("weights/xor")
