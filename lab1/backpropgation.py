@@ -165,7 +165,10 @@ class Network:
         # 4. dC/d(b^l) = delta^l (graident for bias)
 
         # batch size
-        N = y.shape[1]
+        if y.ndim == 1:
+            N = 1
+        else:
+            N = y.shape[1]
 
         # graident of output layer
         d_C_d_y_hat = derivative_binary_cross_entropy(y, y_hat)
@@ -213,19 +216,23 @@ class Network:
 
     def train(self, inputs, labels, num_epochs):
         losses = []
-
         for epoch in range(num_epochs):
             loss = 0
+            for input, label in zip(inputs, labels):
+                # input shape needs to be (2, 1) so that it can be multiplied with weight
+                # make shape of input (2, 1)
+                input = input.reshape(2, 1)
 
-            # reshape input to (N, 2) and transpose so that it can be multiplied with weight
-            inputs = inputs.reshape(-1, 2).T
-            # prediction
-            y_hat = self.forward(inputs)
-            # calculate loss
-            loss = binary_cross_entropy(labels.T, y_hat)
-            # backpropagation
-            self.backward(labels.T, y_hat)
+                # feed to network
+                y_hat = self.forward(input)
 
+                # calculate loss
+                # loss += binary_cross_entropy(label, y_hat)
+                loss += sum_of_square_erorr(label, y_hat)
+
+                self.backward(label, y_hat)
+
+            loss /= len(inputs)
             losses.append(loss)
 
             if epoch % 5000 == 0 or epoch == num_epochs - 1:
@@ -312,8 +319,8 @@ if __name__ == "__main__":
     # net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-4)
     net = Network(input_dim=2, hidden_dims=[8, 8], output_dim=1, lr=1e-4)
     inputs, labels = generate_linear()
-    # net.train(inputs, labels, 30000)
-    net.train_SGD(inputs, labels, 30000, 10)
+    net.train(inputs, labels, 30000)
+    # net.train_SGD(inputs, labels, 30000, 10)
     net.test(inputs, labels)
     # net.load("weights/linear")
     # net.save("weights/linear")
@@ -322,8 +329,8 @@ if __name__ == "__main__":
     # net = Network(input_dim=2, hidden_dims=[4, 4], output_dim=1, lr=1e-3)
     net = Network(input_dim=2, hidden_dims=[8, 8], output_dim=1, lr=1e-3)
     inputs, labels = generate_XOR_easy()
-    # net.train(inputs, labels, 20000)
-    net.train_SGD(inputs, labels, 20000, 7)
+    net.train(inputs, labels, 20000)
+    # net.train_SGD(inputs, labels, 20000, 7)
     net.test(inputs, labels)
     # net.save("weights/xor")
     # net.load("weights/xor")
