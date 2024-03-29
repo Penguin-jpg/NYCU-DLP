@@ -6,8 +6,16 @@ class Block(nn.Module):
         super(Block, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        # initialize weights with N(0, 1e-2) just like paper
+        nn.init.normal_(self.conv1.weight, mean=0, std=1e-2)
+        # bias is initialized to 0
+        nn.init.constant_(self.conv1.bias, 0)
+
         self.act = nn.ReLU(inplace=True)
+
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        nn.init.normal_(self.conv2.weight, mean=0, std=1e-2)
+        nn.init.constant_(self.conv2.bias, 0)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -40,8 +48,8 @@ class VGG19(nn.Module):
 
         # mlp for classification
         self.mlp = nn.Sequential(
-            nn.Sequential(nn.Linear(512 * 7 * 7, 4096), nn.ReLU(inplace=True)),
-            nn.Sequential(nn.Linear(4096, 4096), nn.ReLU(inplace=True)),
+            nn.Sequential(nn.Linear(512 * 7 * 7, 4096), nn.ReLU(inplace=True), nn.Dropout(p=0.5)),
+            nn.Sequential(nn.Linear(4096, 4096), nn.ReLU(inplace=True), nn.Dropout(p=0.5)),
             nn.Linear(4096, num_classes),
         )
 
