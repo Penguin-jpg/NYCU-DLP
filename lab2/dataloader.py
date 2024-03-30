@@ -34,9 +34,7 @@ class BufferflyMothLoader(data.Dataset):
         """
         self.root = root
         self.img_name, self.label = getData(root, mode)
-        self.images = [
-            image_to_tensor(os.path.join(root, img_name)) for img_name in self.img_name
-        ]
+        self.images = [image_to_tensor(os.path.join(root, img_name)) for img_name in self.img_name]
         self.mode = mode
         print("> Found %d images..." % (len(self.img_name)))
 

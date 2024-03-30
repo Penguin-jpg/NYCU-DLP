@@ -42,39 +42,42 @@ def train(
     device,
 ):
     losses = []
-    train_accuracy = []
-    test_accuracy = []
+    train_accuracy_list = []
+    test_accuracy_list = []
     best_loss = None
 
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0
-        accuracy = 0
+        train_accuracy = 0
         for data, label in train_dataloader:
             data = data.to(device)
             label = label.to(device)
             predicted = model(data)
-            accuracy += (predicted.argmax(1) == label).type(torch.float).sum().item()
+            train_accuracy += (predicted.argmax(1) == label).type(torch.float).sum().item()
             loss = loss_fn(predicted, label)
             total_loss += loss.item()
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        accuracy /= len(train_dataloader.dataset)
+        train_accuracy /= len(train_dataloader.dataset)
         total_loss /= len(train_dataloader)
-        train_accuracy.append(accuracy)
+        train_accuracy_list.append(train_accuracy)
         losses.append(total_loss)
-        test_accuracy.append(evaluate(model, test_dataloader, device))
+        test_accuracy = evaluate(model, test_dataloader, device)
+        test_accuracy_list.append(test_accuracy)
 
         if best_loss is None or total_loss < best_loss:
             best_loss = total_loss
             torch.save(model.state_dict(), os.path.join(model_path, "best.pt"))
             print(f"Model saved at {model_path}")
 
-        print(f"Epoch {epoch} loss: {total_loss}")
+        print(
+            f"Epoch {epoch} loss: {total_loss:.5f} train_accuracy: {train_accuracy*100:.2f} test_accuracy: {test_accuracy*100:.2f}"
+        )
 
-    return losses, train_accuracy, test_accuracy
+    return losses, train_accuracy_list, test_accuracy_list
 
 
 def load_model(model_name, model_path, device):
