@@ -21,40 +21,18 @@ def getData(root, mode):
         return path, label
 
 
-def image_to_tensor(image_path):
-    # also normalize to [-1, 1]
-    # return to_tensor(Image.open(image_path)) * 2 - 1
-    image = Image.open(image_path)
-
-    # shape: (H, W, C)
-    image_array = np.array(image)
-
-    # to pytorch tensor
-    image_tensor = torch.from_numpy(image_array)
-
-    # normalize to [0, 1]
-    image_tensor = image_tensor / 255.0
-
-    # normalize to [-1, 1]
-    image_tensor = image_tensor * 2 - 1
-    return image_tensor
-
-
 class ButterflyMothLoader(data.Dataset):
     def __init__(self, root, mode, transform=None):
         """
         Args:
             mode : Indicate procedure status(training or testing)
-            transform: Transformation that will be applied on image
+            transform: Transformation that will be applied to image
 
             self.img_name (string list): String list that store all image names.
             self.label (int or float list): Numerical list that store all ground truth label values.
         """
         self.root = root
         self.img_name, self.label = getData(root, mode)
-        # self.images = [
-        #     image_to_tensor(os.path.join(root, img_name)) for img_name in self.img_name
-        # ]
 
         # at least transform to tensor
         if transform is None:

@@ -8,10 +8,6 @@ class ConvBlock(nn.Module):
         self.conv = nn.Conv2d(
             in_channels, out_channels, kernel_size=3, stride=1, padding=1
         )
-        # initialize weights with N(0, 1e-2)
-        # nn.init.normal_(self.conv.weight, mean=0, std=1e-2)
-        # # bias is initialized to 0
-        # nn.init.constant_(self.conv.bias, 0)
 
         # add batch normalization to prevent gradient vanishing
         self.bn = nn.BatchNorm2d(out_channels)

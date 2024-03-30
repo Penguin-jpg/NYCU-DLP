@@ -76,6 +76,7 @@ def train(
             "model": model.state_dict(),
             "train_accuracy": train_accuracy_list,
             "test_accuracy": test_accuracy_list,
+            "loss": losses,
         }
 
         if best_accuracy is None or test_accuracy < best_accuracy:
@@ -93,18 +94,20 @@ def train(
     return losses, train_accuracy_list, test_accuracy_list
 
 
-def load_model(model_name, model_path, device):
+def load_model(model_name, weight_path, device):
     if model_name == "vgg19":
         model = VGG19()
     else:
         model = ResNet50()
 
-    model.load_state_dict(
-        torch.load(os.path.join(model_path, "best.pt"), map_location="cpu")
-    )
+    state_dict = torch.load(weight_path, map_location="cpu")
+    train_accuracy = state_dict["train_accuracy"]
+    test_accuracy = state_dict["test_accuracy"]
+    losses = state_dict["loss"]
+    model.load_state_dict(state_dict["model"])
     model.to(device)
     model.eval()
-    return model
+    return model, train_accuracy, test_accuracy, losses
 
 
 def print_result(model_name, best_train_accuracy, best_test_accuracy):
@@ -118,6 +121,14 @@ def print_result(model_name, best_train_accuracy, best_test_accuracy):
         print(
             f"ResNet50          |    Train accuracy:   {best_train_accuracy*100:.2f}%|    Test accuracy:   {best_test_accuracy*100:.2f}%"
         )
+
+
+def plot_loss(losses):
+    plt.title("Loss Curve")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.plot(losses)
+    plt.show()
 
 
 def plot_accuracy(
@@ -142,9 +153,9 @@ if __name__ == "__main__":
 
     train_transform = transforms.Compose(
         [
-            transforms.RandomHorizontalFlip(0.5),  # random flip
+            # transforms.RandomHorizontalFlip(0.5),  # random flip
             transforms.ToTensor(),  # image to tensor and normalize to [0, 1]
-            transforms.Lambda(lambda x: x * 2 - 1),  # normalize to [-1, 1]
+            # transforms.Lambda(lambda x: x * 2 - 1),  # normalize to [-1, 1]
         ]
     )
     test_transform = transforms.Compose([transforms.ToTensor()])
@@ -159,20 +170,19 @@ if __name__ == "__main__":
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # train vgg19
-    # vgg = VGG19()
-    # vgg.to(device)
-    # vgg_losses, vgg_train_accuracy, vgg_test_accuracy = train(
-    #     vgg,
-    #     train_dataloader,
-    #     test_dataloader,
-    #     NUM_EPOCHS,
-    #     torch.nn.CrossEntropyLoss(),
-    #     # torch.optim.Adam(vgg.parameters(), lr=1e-2),
-    #     torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
-    #     os.path.join("models", "vgg19"),
-    #     device,
-    # )
-    # print_result("vgg19", max(vgg_train_accuracy), max(vgg_test_accuracy))
+    vgg = VGG19()
+    vgg.to(device)
+    vgg_losses, vgg_train_accuracy, vgg_test_accuracy = train(
+        vgg,
+        train_dataloader,
+        test_dataloader,
+        NUM_EPOCHS,
+        torch.nn.CrossEntropyLoss(),
+        # torch.optim.Adam(vgg.parameters(), lr=1e-2),
+        torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
+        os.path.join("models", "vgg19"),
+        device,
+    )
 
     # train resnet50
     resnet = ResNet50()
@@ -189,12 +199,23 @@ if __name__ == "__main__":
         device,
     )
 
+    # show training and testing results
+    vgg, vgg_train_accuracy, vgg_test_accuracy, vgg_losses = load_model(
+        "vgg19", os.path.join("models", "vgg19", "49.pt"), device
+    )
+    resnet, resnet_train_accuracy, resnet_test_accuracy, resnet_losses = load_model(
+        "resnet50", os.path.join("models", "resnet50", "49.pt"), device
+    )
+
+    print_result("vgg19", max(vgg_train_accuracy), max(vgg_test_accuracy))
     print_result("resnet50", max(resnet_train_accuracy), max(resnet_test_accuracy))
 
-    # plot accuracy
+    plot_loss(vgg_losses)
+    plot_loss(resnet_losses)
+
     plot_accuracy(
-        resnet_train_accuracy,
-        resnet_test_accuracy,
+        vgg_train_accuracy,
+        vgg_test_accuracy,
         resnet_train_accuracy,
         resnet_test_accuracy,
     )
