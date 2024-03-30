@@ -1,8 +1,11 @@
+import os
+
+import numpy as np
 import pandas as pd
+import torch
 from PIL import Image
 from torch.utils import data
-from torchvision.transforms.functional import to_tensor
-import os
+from torchvision import transforms
 
 
 def getData(root, mode):
@@ -20,21 +23,50 @@ def getData(root, mode):
 
 def image_to_tensor(image_path):
     # also normalize to [-1, 1]
-    return to_tensor(Image.open(image_path)) * 2 - 1
+    # return to_tensor(Image.open(image_path)) * 2 - 1
+    image = Image.open(image_path)
+
+    # shape: (H, W, C)
+    image_array = np.array(image)
+
+    # to pytorch tensor
+    image_tensor = torch.from_numpy(image_array)
+
+    # normalize to [0, 1]
+    image_tensor = image_tensor / 255.0
+
+    # normalize to [-1, 1]
+    image_tensor = image_tensor * 2 - 1
+    return image_tensor
 
 
-class BufferflyMothLoader(data.Dataset):
-    def __init__(self, root, mode):
+class ButterflyMothLoader(data.Dataset):
+    def __init__(self, root, mode, transform=None):
         """
         Args:
             mode : Indicate procedure status(training or testing)
+            transform: Transformation that will be applied on image
 
             self.img_name (string list): String list that store all image names.
             self.label (int or float list): Numerical list that store all ground truth label values.
         """
         self.root = root
         self.img_name, self.label = getData(root, mode)
-        self.images = [image_to_tensor(os.path.join(root, img_name)) for img_name in self.img_name]
+        # self.images = [
+        #     image_to_tensor(os.path.join(root, img_name)) for img_name in self.img_name
+        # ]
+
+        # at least transform to tensor
+        if transform is None:
+            self.transform = transforms.Compose([transforms.ToTensor()])
+        else:
+            self.transform = transform
+
+        self.images = [
+            self.transform(Image.open(os.path.join(root, img_name)))
+            for img_name in self.img_name
+        ]
+
         self.mode = mode
         print("> Found %d images..." % (len(self.img_name)))
 

@@ -1,13 +1,13 @@
-import torch
-from torch.utils.data import DataLoader
-
-from dataloader import BufferflyMothLoader
-from VGG19 import VGG19
-from ResNet50 import ResNet50
+import os
 
 import matplotlib.pyplot as plt
+import torch
+from torch.utils.data import DataLoader
+from torchvision import transforms
 
-import os
+from dataloader import ButterflyMothLoader
+from ResNet50 import ResNet50
+from VGG19 import VGG19
 
 
 def evaluate(model, dataloader, device):
@@ -44,7 +44,7 @@ def train(
     losses = []
     train_accuracy_list = []
     test_accuracy_list = []
-    best_loss = None
+    best_accuracy = None
 
     for epoch in range(num_epochs):
         model.train()
@@ -54,7 +54,9 @@ def train(
             data = data.to(device)
             label = label.to(device)
             predicted = model(data)
-            train_accuracy += (predicted.argmax(1) == label).type(torch.float).sum().item()
+            train_accuracy += (
+                (predicted.argmax(1) == label).type(torch.float).sum().item()
+            )
             loss = loss_fn(predicted, label)
             total_loss += loss.item()
             optimizer.zero_grad()
@@ -68,9 +70,20 @@ def train(
         test_accuracy = evaluate(model, test_dataloader, device)
         test_accuracy_list.append(test_accuracy)
 
-        if best_loss is None or total_loss < best_loss:
-            best_loss = total_loss
-            torch.save(model.state_dict(), os.path.join(model_path, "best.pt"))
+        # information to store
+        state_dict = {
+            "epoch": epoch,
+            "model": model.state_dict(),
+            "train_accuracy": train_accuracy_list,
+            "test_accuracy": test_accuracy_list,
+        }
+
+        if best_accuracy is None or test_accuracy < best_accuracy:
+            best_accuracy = test_accuracy
+            torch.save(state_dict, os.path.join(model_path, "best.pt"))
+            print(f"Model saved at {model_path}")
+        elif epoch == num_epochs - 1:
+            torch.save(state_dict, os.path.join(model_path, f"{epoch}.pt"))
             print(f"Model saved at {model_path}")
 
         print(
@@ -86,7 +99,9 @@ def load_model(model_name, model_path, device):
     else:
         model = ResNet50()
 
-    model.load_state_dict(torch.load(os.path.join(model_path, "best.pt"), map_location="cpu"))
+    model.load_state_dict(
+        torch.load(os.path.join(model_path, "best.pt"), map_location="cpu")
+    )
     model.to(device)
     model.eval()
     return model
@@ -105,7 +120,9 @@ def print_result(model_name, best_train_accuracy, best_test_accuracy):
         )
 
 
-def plot_accuracy(vgg_train_accuracy, vgg_test_accuracy, resnet_train_accuracy, resnet_test_accuracy):
+def plot_accuracy(
+    vgg_train_accuracy, vgg_test_accuracy, resnet_train_accuracy, resnet_test_accuracy
+):
     plt.title("Accuracy Curve")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
@@ -118,52 +135,66 @@ def plot_accuracy(vgg_train_accuracy, vgg_test_accuracy, resnet_train_accuracy, 
 
 
 if __name__ == "__main__":
-    BATCH_SIZE = 128
+    BATCH_SIZE = 64
     NUM_EPOCHS = 50
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_dataset = BufferflyMothLoader(root="dataset", mode="train")
-    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
-    test_dataset = BufferflyMothLoader(root="dataset", mode="test")
-    test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+    train_transform = transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(0.5),  # random flip
+            transforms.ToTensor(),  # image to tensor and normalize to [0, 1]
+            transforms.Lambda(lambda x: x * 2 - 1),  # normalize to [-1, 1]
+        ]
+    )
+    test_transform = transforms.Compose([transforms.ToTensor()])
+
+    train_dataset = ButterflyMothLoader(
+        root="dataset", mode="train", transform=train_transform
+    )
+    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    test_dataset = ButterflyMothLoader(
+        root="dataset", mode="test", transform=test_transform
+    )
+    test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # train vgg19
-    vgg = VGG19()
-    vgg.to(device)
-    vgg_losses, vgg_train_accuracy, vgg_test_accuracy = train(
-        vgg,
-        train_dataloader,
-        test_dataloader,
-        NUM_EPOCHS,
-        torch.nn.CrossEntropyLoss(),
-        # torch.optim.Adam(vgg.parameters(), lr=1e-2),
-        torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
-        os.path.join("models", "vgg19"),
-        device,
-    )
-    # print_result("vgg19", max(vgg_train_accuracy), max(vgg_test_accuracy))
-
-    # # train resnet50
-    # resnet = ResNet50()
-    # resnet.to(device)
-    # resnet_losses, resnet_train_accuracy, resnet_test_accuracy = train(
-    #     resnet,
+    # vgg = VGG19()
+    # vgg.to(device)
+    # vgg_losses, vgg_train_accuracy, vgg_test_accuracy = train(
+    #     vgg,
     #     train_dataloader,
     #     test_dataloader,
     #     NUM_EPOCHS,
     #     torch.nn.CrossEntropyLoss(),
-    #     torch.optim.Adam(resnet.parameters(), lr=1e-4),
-    #     os.path.join("models", "resnet50"),
+    #     # torch.optim.Adam(vgg.parameters(), lr=1e-2),
+    #     torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
+    #     os.path.join("models", "vgg19"),
     #     device,
     # )
+    # print_result("vgg19", max(vgg_train_accuracy), max(vgg_test_accuracy))
 
-    # print_result("resnet50", max(resnet_train_accuracy), max(resnet_test_accuracy))
+    # train resnet50
+    resnet = ResNet50()
+    resnet.to(device)
+    resnet_losses, resnet_train_accuracy, resnet_test_accuracy = train(
+        resnet,
+        train_dataloader,
+        test_dataloader,
+        NUM_EPOCHS,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.Adam(resnet.parameters(), lr=1e-4),
+        # torch.optim.SGD(resnet.parameters(), lr=1e-1, momentum=0.9, weight_decay=1e-4),
+        os.path.join("models", "resnet50"),
+        device,
+    )
 
-    # # plot accuracy
-    # plot_accuracy(
-    #     vgg_train_accuracy,
-    #     vgg_test_accuracy,
-    #     resnet_train_accuracy,
-    #     resnet_test_accuracy,
-    # )
+    print_result("resnet50", max(resnet_train_accuracy), max(resnet_test_accuracy))
+
+    # plot accuracy
+    plot_accuracy(
+        resnet_train_accuracy,
+        resnet_test_accuracy,
+        resnet_train_accuracy,
+        resnet_test_accuracy,
+    )

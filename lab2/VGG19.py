@@ -5,8 +5,10 @@ class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ConvBlock, self).__init__()
 
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        # # initialize weights with N(0, 1e-2)
+        self.conv = nn.Conv2d(
+            in_channels, out_channels, kernel_size=3, stride=1, padding=1
+        )
+        # initialize weights with N(0, 1e-2)
         # nn.init.normal_(self.conv.weight, mean=0, std=1e-2)
         # # bias is initialized to 0
         # nn.init.constant_(self.conv.bias, 0)
@@ -31,11 +33,17 @@ class VGG19(nn.Module):
 
         # block 1 (image size: 112x112)
         self.block1 = nn.Sequential(
-            ConvBlock(in_channels, 64), ConvBlock(64, 64), nn.MaxPool2d(kernel_size=2, stride=2)
+            ConvBlock(in_channels, 64),
+            ConvBlock(64, 64),
+            nn.MaxPool2d(kernel_size=2, stride=2),
         )
 
         # block 2 (image size: 56x56)
-        self.block2 = nn.Sequential(ConvBlock(64, 128), ConvBlock(128, 128), nn.MaxPool2d(kernel_size=2, stride=2))
+        self.block2 = nn.Sequential(
+            ConvBlock(64, 128),
+            ConvBlock(128, 128),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
 
         # block 3 (image size: 28x28)
         self.block3 = nn.Sequential(
