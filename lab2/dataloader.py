@@ -14,6 +14,11 @@ def getData(root, mode):
         path = df["filepaths"].tolist()
         label = df["label_id"].tolist()
         return path, label
+    elif mode == "valid":
+        df = pd.read_csv(os.path.join(root, "valid.csv"))
+        path = df["filepaths"].tolist()
+        label = df["label_id"].tolist()
+        return path, label
     else:
         df = pd.read_csv(os.path.join(root, "test.csv"))
         path = df["filepaths"].tolist()
@@ -40,10 +45,7 @@ class ButterflyMothLoader(data.Dataset):
         else:
             self.transform = transform
 
-        self.images = [
-            self.transform(Image.open(os.path.join(root, img_name)))
-            for img_name in self.img_name
-        ]
+        self.images = [self.transform(Image.open(os.path.join(root, img_name))) for img_name in self.img_name]
 
         self.mode = mode
         print("> Found %d images..." % (len(self.img_name)))
