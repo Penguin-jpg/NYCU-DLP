@@ -54,11 +54,11 @@ class Encoder(nn.Module):
                 # store the result if the current module is ConvBlock
                 if isinstance(module, ConvBlock):
                     x = module(x)
-                    print(f"conv: {x.shape}")
+                    # print(f"conv: {x.shape}")
                     encoder_results.append(x)
                 else:
                     x = module(x)
-                    print(f"pool: {x.shape}")
+                    # print(f"pool: {x.shape}")
         return x, encoder_results
 
 
@@ -74,7 +74,7 @@ class Decoder(nn.Module):
         for i, multiplier in enumerate(channel_multipliers):
             # the output channels are is the base_channels * the multiplier
             out_channels = base_channels * multiplier
-            print(f"in: {in_channels}, out: {out_channels}")
+            # print(f"in: {in_channels}, out: {out_channels}")
 
             # the first upsample is done in the bottleneck, so we only need to do 3 upsamples
             if i != len(channel_multipliers) - 1:
@@ -105,12 +105,12 @@ class Decoder(nn.Module):
             # because the image size in encoder is different from the image size in decoder,
             # we need to resize the encoder_result with center crop
             encoder_result = center_crop(encoder_result, x.shape[2:])
-            print(f"crop: {encoder_result.shape}")
+            # print(f"crop: {encoder_result.shape}")
             # concat encoder_result with x along the channel dimension
             x = torch.cat([encoder_result, x], dim=1)
-            print(f"concat: {x.shape}")
+            # print(f"concat: {x.shape}")
             x = block(x)
-            print(f"deconv: {x.shape}")
+            # print(f"deconv: {x.shape}")
         return x
 
 
@@ -147,10 +147,10 @@ class UNet(nn.Module):
     def forward(self, x):
         x, encoder_results = self.encoder(x)
         x = self.bottleneck(x)
-        print(f"bottleneck: {x.shape}")
+        # print(f"bottleneck: {x.shape}")
         x = self.decoder(x, encoder_results)
         x = self.output(x)
-        print(f"output: {x.shape}")
+        # print(f"output: {x.shape}")
         return x
 
 

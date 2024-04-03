@@ -7,9 +7,11 @@ from PIL import Image
 from tqdm import tqdm
 from urllib.request import urlretrieve
 from torchvision import transforms
+from utils import pad_image
+from torch.utils.data import Dataset
 
 
-class OxfordPetDataset(torch.utils.data.Dataset):
+class OxfordPetDataset(Dataset):
     def __init__(self, root, mode="train", transform=None):
         assert mode in {"train", "valid", "test"}
 
@@ -22,29 +24,33 @@ class OxfordPetDataset(torch.utils.data.Dataset):
 
         self.filenames = self._read_split()  # read train/valid/test splits
 
+        self.images = []
+        self.masks = []
+        self.trimaps = []
+
+        for filename in self.filenames:
+            image_path = os.path.join(self.images_directory, filename + ".jpg")
+            mask_path = os.path.join(self.masks_directory, filename + ".png")
+
+            self.images.append(
+                np.array(pad_image(Image.open(image_path).convert("RGB")))
+            )
+            self.trimaps.append(np.array(pad_image(Image.open(mask_path))))
+            self.masks.append(self._preprocess_mask((self.trimaps[-1])))
+
     def __len__(self):
         return len(self.filenames)
 
     def __getitem__(self, idx):
-        filename = self.filenames[idx]
-        image_path = os.path.join(self.images_directory, filename + ".jpg")
-        mask_path = os.path.join(self.masks_directory, filename + ".png")
-
-        image = np.array(Image.open(image_path).convert("RGB"))
-
-        trimap = np.array(Image.open(mask_path))
-        mask = self._preprocess_mask(trimap)
-
-        sample = dict(image=image, mask=mask, trimap=trimap)
+        image, mask, trimap = self.images[idx], self.masks[idx], self.trimaps[idx]
         if self.transform is not None:
             # the original code gives me a TypeError
             # sample = self.transform(**sample)
+            image = self.transform(image)
+            mask = self.transform(mask)
+            trimap = self.transform(trimap)
 
-            sample["image"] = self.transform(sample["image"])
-            sample["mask"] = self.transform(sample["mask"])
-            sample["trimap"] = self.transform(sample["trimap"])
-
-        return sample
+        return image, mask, trimap
 
     @staticmethod
     def _preprocess_mask(mask):
@@ -82,29 +88,6 @@ class OxfordPetDataset(torch.utils.data.Dataset):
             filepath=filepath,
         )
         extract_archive(filepath)
-
-
-class SimpleOxfordPetDataset(OxfordPetDataset):
-    def __getitem__(self, *args, **kwargs):
-        sample = super().__getitem__(*args, **kwargs)
-
-        # resize images
-        image = np.array(
-            Image.fromarray(sample["image"]).resize((256, 256), Image.BILINEAR)
-        )
-        mask = np.array(
-            Image.fromarray(sample["mask"]).resize((256, 256), Image.NEAREST)
-        )
-        trimap = np.array(
-            Image.fromarray(sample["trimap"]).resize((256, 256), Image.NEAREST)
-        )
-
-        # convert to other format HWC -> CHW
-        sample["image"] = np.moveaxis(image, -1, 0)
-        sample["mask"] = np.expand_dims(mask, 0)
-        sample["trimap"] = np.expand_dims(trimap, 0)
-
-        return sample
 
 
 class TqdmUpTo(tqdm):
@@ -145,12 +128,14 @@ def load_dataset(data_path, mode):
     if mode == "train":
         transform = transforms.Compose(
             [
-                transforms.ToTensor(),
+                transforms.Resize(500),  # resize to 500x500
+                transforms.ToTensor(),  # convert to tensor and normalize to [0, 1]
             ]
         )
     else:  # transform for testing
         transform = transforms.Compose(
             [
+                transforms.Resize(500),
                 transforms.ToTensor(),
             ]
         )
