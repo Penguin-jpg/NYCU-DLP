@@ -174,7 +174,7 @@ if __name__ == "__main__":
         torch.nn.CrossEntropyLoss(),
         # torch.optim.Adam(vgg.parameters(), lr=1e-2),
         torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
-        os.path.join("models", "vgg19"),
+        os.path.join("checkpoints", "vgg19"),
         device,
     )
 
@@ -189,16 +189,16 @@ if __name__ == "__main__":
         torch.nn.CrossEntropyLoss(),
         torch.optim.Adam(resnet.parameters(), lr=1e-4),
         # torch.optim.SGD(resnet.parameters(), lr=1e-1, momentum=0.9, weight_decay=1e-4),
-        os.path.join("models", "resnet50"),
+        os.path.join("checkpoints", "resnet50"),
         device,
     )
 
     # show training and testing results
     # vgg, vgg_train_accuracy, vgg_val_accuracy, vgg_losses = load_model(
-    #     "vgg19", os.path.join("models", "vgg19", "49.pt"), device
+    #     "vgg19", os.path.join("checkpoints", "vgg19", "49.pt"), device
     # )
     # resnet, resnet_train_accuracy, resnet_val_accuracy, resnet_losses = load_model(
-    #     "resnet50", os.path.join("models", "resnet50", "49.pt"), device
+    #     "resnet50", os.path.join("checkpoints", "resnet50", "49.pt"), device
     # )
 
     # vgg_test_accuracy = test(vgg, test_dataloader, device)
