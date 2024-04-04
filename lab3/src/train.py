@@ -3,6 +3,7 @@ import os
 
 import torch
 from torch import nn, optim
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from evaluate import evaluate
@@ -30,12 +31,21 @@ def train(
         model.train()
 
         train_loss = 0
-        for sample in train_loader:
-            image = sample["image"].to(device)
-            mask = sample["mask"].to(device)
-
+        for image, mask, _ in train_loader:
+            image = image.to(device)
+            # remove channel dimension and cast to long (for cross entropy)
+            mask = mask.to(device, dtype=torch.long).squeeze(1)
             predicted_mask = model(image)
-            loss = loss_fn(predicted_mask, mask) + dice_score(predicted_mask, mask)
+
+            loss = loss_fn(predicted_mask, mask) + dice_score(
+                F.softmax(
+                    predicted_mask, 1
+                ).float(),  # turn predicted pixels into probabilities
+                F.one_hot(mask, 3)
+                .permute(0, 3, 1, 2)
+                .float(),  # turn label mask to one-hot encoding to match shape (B, 3, H, W)
+            )
+            loss = loss_fn(predicted_mask, mask)
 
             train_loss += loss.item()
 
@@ -43,7 +53,7 @@ def train(
             loss.backward()
             optimizer.step()
 
-        val_loss = evaluate(model, valid_loader, loss_fn, device)
+        val_loss, _ = evaluate(model, valid_loader, loss_fn, device)
 
         train_loss /= len(train_loader)
         val_loss /= len(valid_loader)
@@ -86,10 +96,11 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     unet = UNet(
         in_channels=3,
-        out_channels=2,
+        out_channels=3,
         base_channels=64,
         channel_multipliers=[1, 2, 4, 8],
     )
+    unet.to(device)
     optimizer = optim.SGD(unet.parameters(), lr=args.learning_rate, momentum=0.99)
     loss_fn = nn.CrossEntropyLoss()
 
@@ -100,6 +111,6 @@ if __name__ == "__main__":
         args.epochs,
         loss_fn,
         optimizer,
-        os.path.join("saved_models", "DLP_Lab3_312553001_謝佾遑.zip"),
+        os.path.join("saved_models", "UNet.pth"),
         device,
     )

@@ -1,28 +1,48 @@
-import torch
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+from models.unet import UNet
 from torchvision.transforms.functional import pad
 
 
-def dice_score(pred_mask, gt_mask):
-    # dice score = 2 * intersection / (|pred_mask| + |gt_mask|)
-    # to calculate intersection of two binary masks, we can compute logical AND of two masks
+# reference:
+# 1. https://github.com/milesial/Pytorch-UNet/blob/master/utils/dice_score.py
+# 2. https://blog.csdn.net/ODIMAYA/article/details/123844795
+def binary_dice_score(pred_mask, gt_mask):
+    # dice score = 2 * intersection / (|pred_mask| + |gt_mask|) (denominator is union)
+    B, H, W = pred_mask.shape
+
+    # since we consider the whole image, we can reduce the height and width into a single dimension
+    # to simplify computation
+    pred = pred_mask.view(B, -1)
+    gt = gt_mask.view(B, -1)
+
+    # to calculate intersection of two binary masks, we can compute simply mutlipy two masks
     # and sum the elements to get the number of pixels in the intersection
-    intersection = torch.logical_and(pred_mask, gt_mask).sum(dim=-1)
+    intersection = (pred * gt).sum(1)
 
-    # we can also use sum to calculate the number of pixels of the masks
-    # return 2 * intersection / (pred_mask.sum(dim=-1) + gt_mask.sum(dim=-1))
+    # to calculate union of two binary masks, we can compute the sum of both masks
+    union = pred.sum(1) + gt.sum(1)
 
-    # calculate mask size
-    pred_mask_size = pred_mask.shape[-1] * pred_mask.shape[-2]
-    gt_mask_size = gt_mask.shape[-1] * gt_mask.shape[-2]
-
-    return 2 * intersection / (pred_mask_size + gt_mask_size)
+    # average over batch
+    return (2 * intersection / union).mean()
 
 
-# image padding
+def dice_score(pred_mask, gt_mask):
+    B, C, H, W = pred_mask.shape
+
+    score = 0
+
+    # calculate dice score for each channel and average over channel
+    for i in range(C):
+        score += binary_dice_score(pred_mask[:, i], gt_mask[:, i])
+    score /= C
+
+    return score
+
+
+# reference: https://discuss.pytorch.org/t/how-to-resize-and-pad-in-a-torchvision-transforms-compose/71850/5
 def pad_image(image):
-    # reference: https://discuss.pytorch.org/t/how-to-resize-and-pad-in-a-torchvision-transforms-compose/71850/5
     width, height = image.size
 
     # get max side
@@ -42,3 +62,40 @@ def plot_loss(losses, title):
     plt.title(title)
     plt.plot(losses)
     plt.show()
+
+
+def mask_to_image(mask):
+    mask = mask.astype(np.float32)
+    mask[mask == 2.0] = 0.0
+    mask[(mask == 1.0) | (mask == 3.0)] = 1.0
+    return mask
+
+
+def plot_comparison(predicition):
+    plt.suptitle("Test Results")
+    plt.subplot(1, 3, 1)
+    plt.title("Image")
+    plt.imshow(predicition["image"])
+    plt.subplot(1, 3, 2)
+    plt.title("GT")
+    plt.imshow(predicition["mask"])
+    plt.subplot(1, 3, 3)
+    plt.title("Prediction")
+    plt.imshow(predicition["pred"])
+    plt.tight_layout()
+    plt.show()
+
+
+def load_model(model_path, device):
+    state_dict = torch.load(model_path, map_location="cpu")
+    if "UNet" in model_path:
+        model = UNet(
+            in_channels=3,
+            out_channels=3,
+            base_channels=64,
+            channel_multipliers=[1, 2, 4, 8],
+        )
+    model.load_state_dict(state_dict)
+    model.to(device)
+    model.eval()
+    return model

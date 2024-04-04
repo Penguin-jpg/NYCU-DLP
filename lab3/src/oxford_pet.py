@@ -24,31 +24,24 @@ class OxfordPetDataset(Dataset):
 
         self.filenames = self._read_split()  # read train/valid/test splits
 
-        self.images = []
-        self.masks = []
-        self.trimaps = []
-
-        for filename in self.filenames:
-            image_path = os.path.join(self.images_directory, filename + ".jpg")
-            mask_path = os.path.join(self.masks_directory, filename + ".png")
-
-            self.images.append(
-                np.array(pad_image(Image.open(image_path).convert("RGB")))
-            )
-            self.trimaps.append(np.array(pad_image(Image.open(mask_path))))
-            self.masks.append(self._preprocess_mask((self.trimaps[-1])))
-
     def __len__(self):
         return len(self.filenames)
 
     def __getitem__(self, idx):
-        image, mask, trimap = self.images[idx], self.masks[idx], self.trimaps[idx]
+        filename = self.filenames[idx]
+        image_path = os.path.join(self.images_directory, filename + ".jpg")
+        mask_path = os.path.join(self.masks_directory, filename + ".png")
+
+        image = pad_image(Image.open(image_path).convert("RGB"))
+        trimap = np.array(pad_image(Image.open(mask_path)))
+        mask = self._preprocess_mask(trimap)
+
         if self.transform is not None:
             # the original code gives me a TypeError
             # sample = self.transform(**sample)
             image = self.transform(image)
-            mask = self.transform(mask)
-            trimap = self.transform(trimap)
+            mask = self.transform(Image.fromarray(mask))
+            trimap = self.transform(Image.fromarray(trimap))
 
         return image, mask, trimap
 
@@ -128,14 +121,14 @@ def load_dataset(data_path, mode):
     if mode == "train":
         transform = transforms.Compose(
             [
-                transforms.Resize(500),  # resize to 500x500
+                transforms.Resize((512, 512)),  # resize to 500x500
                 transforms.ToTensor(),  # convert to tensor and normalize to [0, 1]
             ]
         )
     else:  # transform for testing
         transform = transforms.Compose(
             [
-                transforms.Resize(500),
+                transforms.Resize((512, 512)),
                 transforms.ToTensor(),
             ]
         )
