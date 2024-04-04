@@ -54,7 +54,7 @@ def test(model, dataloader, device):
             F.one_hot(mask, 3)
             .permute(0, 3, 1, 2)
             .float(),  # turn label mask to one-hot encoding to match shape (B, 3, H, W)
-        )
+        ).item()
 
     # average over batches
     score /= len(dataloader)
