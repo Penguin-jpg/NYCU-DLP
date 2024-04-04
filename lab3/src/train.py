@@ -53,7 +53,7 @@ def train(
             loss.backward()
             optimizer.step()
 
-        val_loss, _ = evaluate(model, valid_loader, loss_fn, device)
+        val_loss = evaluate(model, valid_loader, loss_fn, device)
 
         train_loss /= len(train_loader)
         val_loss /= len(valid_loader)
@@ -66,6 +66,9 @@ def train(
             torch.save(model.state_dict(), model_path)
 
         print(f"Epoch {epoch}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+
+    plot_loss(train_losses, "Training Loss")
+    plot_loss(val_losses, "Validation Loss")
 
 
 def get_args():
