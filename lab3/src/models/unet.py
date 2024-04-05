@@ -2,6 +2,7 @@
 import torch
 from torch import nn
 from torchvision.transforms.functional import center_crop
+import math
 
 
 class ConvBlock(nn.Module):
@@ -9,12 +10,20 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
 
         # basic block of unet is 2 convolution layers and 2 relu
+        # Kaiming initialization is better than the original paper's initialization
+        conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        # nn.init.normal_(conv1.weight, mean=0, std=math.sqrt(2/(3*3*in_channels)))
+        nn.init.kaiming_normal_(conv1.weight, mode="fan_in", nonlinearity="relu")
+        conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        # nn.init.normal_(conv2.weight, mean=0, std=math.sqrt(2/(3*3*out_channels)))
+        nn.init.kaiming_normal_(conv2.weight, mode="fan_in", nonlinearity="relu")
+
         self.block = nn.Sequential(
             # I choose to maintain image size or the preprocessing of mask will need to be deal with separately
             # 3x3 conv with stride 1 and padding 1 to maintain image size
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            conv1,
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            conv2,
             nn.ReLU(inplace=True),
         )
 
@@ -111,7 +120,7 @@ class UNet(nn.Module):
     def __init__(
         self,
         in_channels=3,
-        out_channels=3,
+        out_channels=2,
         base_channels=64,
         channel_multipliers=[1, 2, 4, 8],
     ):
@@ -123,10 +132,7 @@ class UNet(nn.Module):
 
         # bottleneck consists of 2 convolution layers and a deconvolution layer: 512 -> 1024 -> 1024 -> upsample
         self.bottleneck = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
+            ConvBlock(in_channels, in_channels * 2),
             nn.ConvTranspose2d(in_channels * 2, in_channels, kernel_size=2, stride=2),
         )
         in_channels *= 2
@@ -136,6 +142,8 @@ class UNet(nn.Module):
 
         # output layer is a convoluton layer with 1x1 kernel
         self.output = nn.Conv2d(base_channels, out_channels, kernel_size=1)
+        nn.init.kaiming_normal_(self.output.weight, mode="fan_in", nonlinearity="relu")
+        # nn.init.normal_(self.output.weight, mean=0, std=math.sqrt(2 / (1 * 1 * base_channels)))
 
     def forward(self, x):
         x, encoder_results = self.encoder(x)
@@ -147,6 +155,7 @@ class UNet(nn.Module):
         return x
 
 
-unet = UNet(in_channels=3, out_channels=3, base_channels=64, channel_multipliers=[1, 2, 4, 8])
-t = torch.randn(1, 3, 572, 572)
-unet(t)
+# unet = UNet(in_channels=3, out_channels=3, base_channels=64, channel_multipliers=[1, 2, 4, 8])
+# t = torch.randn(1, 2, 572, 572)
+# unet(t)
+# print(unet)

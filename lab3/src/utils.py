@@ -58,9 +58,13 @@ def pad_image(image):
     return pad(image, padding, 0, "constant")
 
 
-def plot_loss(losses, title):
-    plt.title(title)
-    plt.plot(losses)
+def plot_loss(train_losses, val_losses):
+    plt.title("Training and Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.plot(train_losses, label="Training Loss")
+    plt.plot(val_losses, label="Validation Loss")
+    plt.legend()
     plt.show()
 
 
@@ -91,7 +95,7 @@ def load_model(model_path, device):
     if "UNet" in model_path:
         model = UNet(
             in_channels=3,
-            out_channels=3,
+            out_channels=2,
             base_channels=64,
             channel_multipliers=[1, 2, 4, 8],
         )

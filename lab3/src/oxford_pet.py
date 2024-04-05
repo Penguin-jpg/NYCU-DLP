@@ -9,15 +9,17 @@ from urllib.request import urlretrieve
 from torchvision import transforms
 from utils import pad_image
 from torch.utils.data import Dataset
+import torchvision.transforms.functional as TF
+import random
 
 
 class OxfordPetDataset(Dataset):
-    def __init__(self, root, mode="train", transform=None):
+    def __init__(self, root, mode="train"):
         assert mode in {"train", "valid", "test"}
 
         self.root = root
         self.mode = mode
-        self.transform = transform
+        # self.transform = transform
 
         self.images_directory = os.path.join(self.root, "images")
         self.masks_directory = os.path.join(self.root, "annotations", "trimaps")
@@ -31,19 +33,16 @@ class OxfordPetDataset(Dataset):
         filename = self.filenames[idx]
         image_path = os.path.join(self.images_directory, filename + ".jpg")
         mask_path = os.path.join(self.masks_directory, filename + ".png")
+        image = Image.open(image_path).convert("RGB")
+        trimap = np.array(Image.open(mask_path))
+        mask = Image.fromarray(self._preprocess_mask(trimap))
 
-        image = pad_image(Image.open(image_path).convert("RGB"))
-        trimap = np.array(pad_image(Image.open(mask_path)))
-        mask = self._preprocess_mask(trimap)
+        if self.mode == "train" or self.mode == "valid":
+            image, mask = self.transform(image, mask, flip=True)
+        else:
+            image, mask = self.transform(image, mask, flip=False)
 
-        if self.transform is not None:
-            # the original code gives me a TypeError
-            # sample = self.transform(**sample)
-            image = self.transform(image)
-            mask = self.transform(Image.fromarray(mask))
-            trimap = self.transform(Image.fromarray(trimap))
-
-        return image, mask, trimap
+        return image, mask
 
     @staticmethod
     def _preprocess_mask(mask):
@@ -82,6 +81,30 @@ class OxfordPetDataset(Dataset):
         )
         extract_archive(filepath)
 
+    # reference: https://discuss.pytorch.org/t/torchvision-transfors-how-to-perform-identical-transform-on-both-image-and-target/10606/7
+    def transform(self, image, mask, flip=True):
+        # because we want identical transformation for both image and mask, I
+        # cannot directly apply transformation that depends on probability on
+        # both of them separately
+
+        # resize doesn't depend on probability
+        image = TF.resize(image, (256, 256))
+        mask = TF.resize(mask, (256, 256))
+
+        # random horizontal flip (anything mentioned random related to probability)
+        if flip and random.random() > 0.5:
+            image = TF.hflip(image)
+            mask = TF.hflip(mask)
+
+        # convert to tensor and normalize to [0, 1]
+        image = TF.to_tensor(image)
+        mask = TF.to_tensor(mask)
+
+        # standardization (mean=0, std=1) to speed up convergence
+        image = TF.normalize(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+        return image, mask
+
 
 class TqdmUpTo(tqdm):
     def update_to(self, b=1, bsize=1, tsize=None):
@@ -115,22 +138,4 @@ def extract_archive(filepath):
 
 
 def load_dataset(data_path, mode):
-    # implement the load dataset function here
-
-    # transform for training
-    if mode == "train":
-        transform = transforms.Compose(
-            [
-                transforms.Resize((512, 512)),  # resize to 500x500
-                transforms.ToTensor(),  # convert to tensor and normalize to [0, 1]
-            ]
-        )
-    else:  # transform for testing
-        transform = transforms.Compose(
-            [
-                transforms.Resize((512, 512)),
-                transforms.ToTensor(),
-            ]
-        )
-
-    return OxfordPetDataset(data_path, mode, transform)
+    return OxfordPetDataset(data_path, mode)
