@@ -126,6 +126,7 @@ def plot_loss(losses):
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.plot(losses)
+    plt.savefig("loss.png")
     plt.show()
 
 
@@ -134,11 +135,16 @@ def plot_accuracy(vgg_train_accuracy, vgg_val_accuracy, resnet_train_accuracy, r
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.plot(vgg_train_accuracy, label="VGG19_train_acc")
-    plt.plot(vgg_val_accuracy, label="VGG19_valid_acc")
+    plt.plot(vgg_val_accuracy, label="VGG19_test_acc")
     plt.plot(resnet_train_accuracy, label="ResNet50_train_acc")
-    plt.plot(resnet_val_accuracy, label="ResNet50_valid_acc")
+    plt.plot(resnet_val_accuracy, label="ResNet50_test_acc")
     plt.legend()
+    plt.savefig("accuracy.png")
     plt.show()
+
+
+def float_to_percent(accuracy):
+    return [100 * f for f in accuracy]
 
 
 if __name__ == "__main__":
@@ -149,70 +155,75 @@ if __name__ == "__main__":
 
     train_transform = transforms.Compose(
         [
-            # transforms.RandomHorizontalFlip(0.5),  # random flip
+            transforms.RandomHorizontalFlip(0.5),  # random flip
             transforms.ToTensor(),  # image to tensor and normalize to [0, 1]
-            # transforms.Lambda(lambda x: x * 2 - 1),  # normalize to [-1, 1]
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # standardization
         ]
     )
-    test_transform = transforms.Compose([transforms.ToTensor()])
+    test_transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
-    train_dataset = ButterflyMothLoader(root="dataset", mode="train", transform=train_transform)
-    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    val_dataset = ButterflyMothLoader(root="dataset", mode="valid", transform=test_transform)
-    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    # train_dataset = ButterflyMothLoader(root="dataset", mode="train", transform=train_transform)
+    # train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    # val_dataset = ButterflyMothLoader(root="dataset", mode="valid", transform=train_transform)
+    # val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_dataset = ButterflyMothLoader(root="dataset", mode="test", transform=test_transform)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
     # train vgg19
-    vgg = VGG19()
-    vgg.to(device)
-    vgg_losses, vgg_train_accuracy, vgg_val_accuracy = train(
-        vgg,
-        train_dataloader,
-        val_dataloader,
-        NUM_EPOCHS,
-        torch.nn.CrossEntropyLoss(),
-        # torch.optim.Adam(vgg.parameters(), lr=1e-2),
-        torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
-        os.path.join("checkpoints", "vgg19"),
-        device,
-    )
+    # vgg = VGG19()
+    # vgg.to(device)
+    # vgg_losses, vgg_train_accuracy, vgg_val_accuracy = train(
+    #     vgg,
+    #     train_dataloader,
+    #     val_dataloader,
+    #     NUM_EPOCHS,
+    #     torch.nn.CrossEntropyLoss(),
+    #     # torch.optim.Adam(vgg.parameters(), lr=1e-2),
+    #     torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
+    #     os.path.join("checkpoints", "vgg19"),
+    #     device,
+    # )
 
     # train resnet50
-    resnet = ResNet50()
-    resnet.to(device)
-    resnet_losses, resnet_train_accuracy, resnet_val_accuracy = train(
-        resnet,
-        train_dataloader,
-        val_dataloader,
-        NUM_EPOCHS,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.Adam(resnet.parameters(), lr=1e-4),
-        # torch.optim.SGD(resnet.parameters(), lr=1e-1, momentum=0.9, weight_decay=1e-4),
-        os.path.join("checkpoints", "resnet50"),
-        device,
-    )
+    # resnet = ResNet50()
+    # resnet.to(device)
+    # resnet_losses, resnet_train_accuracy, resnet_val_accuracy = train(
+    #     resnet,
+    #     train_dataloader,
+    #     val_dataloader,
+    #     NUM_EPOCHS,
+    #     torch.nn.CrossEntropyLoss(),
+    #     # torch.optim.Adam(resnet.parameters(), lr=1e-4),
+    #     torch.optim.SGD(resnet.parameters(), lr=1e-1, momentum=0.9, weight_decay=1e-4),
+    #     os.path.join("checkpoints", "resnet50"),
+    #     device,
+    # )
 
     # show training and testing results
-    # vgg, vgg_train_accuracy, vgg_val_accuracy, vgg_losses = load_model(
-    #     "vgg19", os.path.join("checkpoints", "vgg19", "49.pt"), device
-    # )
-    # resnet, resnet_train_accuracy, resnet_val_accuracy, resnet_losses = load_model(
-    #     "resnet50", os.path.join("checkpoints", "resnet50", "49.pt"), device
-    # )
+    vgg, vgg_train_accuracy, vgg_val_accuracy, vgg_losses = load_model(
+        "vgg19", os.path.join("checkpoints", "vgg19", "49.pt"), device
+    )
+    resnet, resnet_train_accuracy, resnet_val_accuracy, resnet_losses = load_model(
+        "resnet50", os.path.join("checkpoints", "resnet50", "49.pt"), device
+    )
 
-    # vgg_test_accuracy = test(vgg, test_dataloader, device)
-    # resnet_test_accuracy = test(resnet, test_dataloader, device)
+    vgg_test_accuracy = test(vgg, test_dataloader, device)
+    resnet_test_accuracy = test(resnet, test_dataloader, device)
 
-    # print_result("vgg19", max(vgg_train_accuracy), vgg_test_accuracy)
-    # print_result("resnet50", max(resnet_train_accuracy), resnet_test_accuracy)
+    print_result("vgg19", max(vgg_train_accuracy), vgg_test_accuracy)
+    print_result("resnet50", max(resnet_train_accuracy), resnet_test_accuracy)
 
     # plot_loss(vgg_losses)
     # plot_loss(resnet_losses)
 
-    # plot_accuracy(
-    #     vgg_train_accuracy,
-    #     vgg_val_accuracy,
-    #     resnet_train_accuracy,
-    #     resnet_val_accuracy,
-    # )
+    plot_accuracy(
+        float_to_percent(vgg_train_accuracy),
+        float_to_percent(vgg_val_accuracy),
+        float_to_percent(resnet_train_accuracy),
+        float_to_percent(resnet_val_accuracy),
+    )

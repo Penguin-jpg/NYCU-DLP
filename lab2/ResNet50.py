@@ -7,24 +7,21 @@ class Bottleneck(nn.Module):
 
         # conv(k=1, s=1, p=0) -> bn -> relu -> conv(k=3, s=1 or 2, p=1)
         # -> bn -> relu -> conv(k=1, s=1, p=0) -> bn -> residual -> relu
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
+        # bias sets to False since BN has its own bias
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
         self.b2 = nn.BatchNorm2d(out_channels)
         # for resnet50, the multiplier is 4
-        self.conv3 = nn.Conv2d(out_channels, out_channels * multiplier, kernel_size=1, stride=1, padding=0)
+        self.conv3 = nn.Conv2d(out_channels, out_channels * multiplier, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn3 = nn.BatchNorm2d(out_channels * multiplier)
 
         # because the number of channels maybe different for in_channels and
         # out_channels, the shortcut needs to be a 1x1 conv to match the number of channels
         if in_channels != out_channels * multiplier or stride == 2:
             self.shortcut = nn.Conv2d(
-                in_channels,
-                out_channels * multiplier,
-                kernel_size=1,
-                stride=stride,
-                padding=0,
+                in_channels, out_channels * multiplier, kernel_size=1, stride=stride, padding=0, bias=False
             )
         else:
             self.shortcut = nn.Identity()
@@ -51,7 +48,7 @@ class ResNet50(nn.Module):
         super(ResNet50, self).__init__()
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3),
+            nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
         )
