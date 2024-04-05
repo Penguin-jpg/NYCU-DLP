@@ -7,19 +7,13 @@ class Bottleneck(nn.Module):
 
         # conv(k=1, s=1, p=0) -> bn -> relu -> conv(k=3, s=1 or 2, p=1)
         # -> bn -> relu -> conv(k=1, s=1, p=0) -> bn -> residual -> relu
-        self.conv1 = nn.Conv2d(
-            in_channels, out_channels, kernel_size=1, stride=1, padding=0
-        )
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(out_channels)
-        self.act = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(
-            out_channels, out_channels, kernel_size=3, stride=stride, padding=1
-        )
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1)
         self.b2 = nn.BatchNorm2d(out_channels)
         # for resnet50, the multiplier is 4
-        self.conv3 = nn.Conv2d(
-            out_channels, out_channels * multiplier, kernel_size=1, stride=1, padding=0
-        )
+        self.conv3 = nn.Conv2d(out_channels, out_channels * multiplier, kernel_size=1, stride=1, padding=0)
         self.bn3 = nn.BatchNorm2d(out_channels * multiplier)
 
         # because the number of channels maybe different for in_channels and
@@ -34,19 +28,21 @@ class Bottleneck(nn.Module):
             )
         else:
             self.shortcut = nn.Identity()
+        self.bn4 = nn.BatchNorm2d(out_channels * multiplier)
 
     def forward(self, x):
         h = self.conv1(x)
         h = self.bn1(h)
-        h = self.act(h)
+        h = self.relu(h)
         h = self.conv2(h)
         h = self.b2(h)
-        h = self.act(h)
+        h = self.relu(h)
         h = self.conv3(h)
         h = self.bn3(h)
         x = self.shortcut(x)
+        x = self.bn4(x)
         h += x
-        h = self.act(h)
+        h = self.relu(h)
         return h
 
 

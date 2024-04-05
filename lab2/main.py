@@ -161,7 +161,7 @@ if __name__ == "__main__":
     val_dataset = ButterflyMothLoader(root="dataset", mode="valid", transform=test_transform)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_dataset = ButterflyMothLoader(root="dataset", mode="test", transform=test_transform)
-    test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
     # train vgg19
     vgg = VGG19()
