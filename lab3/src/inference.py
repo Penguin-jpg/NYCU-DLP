@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from evaluate import test, evaluate
+from evaluate import test
 from oxford_pet import load_dataset
 from utils import load_model, plot_comparison
 

@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from models.unet import UNet
+from models.resnet34_unet import ResNet34Unet
 from torchvision.transforms.functional import pad
 
 
@@ -65,6 +66,7 @@ def plot_loss(train_losses, val_losses):
     plt.plot(train_losses, label="Training Loss")
     plt.plot(val_losses, label="Validation Loss")
     plt.legend()
+    plt.savefig("loss.png")
     plt.show()
 
 
@@ -87,18 +89,22 @@ def plot_comparison(predicition):
     plt.title("Prediction")
     plt.imshow(predicition["pred"])
     plt.tight_layout()
+    plt.savefig("prediction.png")
     plt.show()
 
 
 def load_model(model_path, device):
     state_dict = torch.load(model_path, map_location="cpu")
-    if "UNet" in model_path:
+    if "ResNet34" in model_path:
+        model = ResNet34Unet(in_channels=3, out_channels=2)
+    else:
         model = UNet(
             in_channels=3,
             out_channels=2,
             base_channels=64,
             channel_multipliers=[1, 2, 4, 8],
         )
+
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
