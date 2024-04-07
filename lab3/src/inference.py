@@ -1,12 +1,42 @@
 import argparse
 
 import torch
+import torch.nn.functional as F
+from oxford_pet import load_dataset
 from torch import nn
 from torch.utils.data import DataLoader
+from utils import dice_score, load_model, mask_to_image, plot_comparison
 
-from evaluate import test
-from oxford_pet import load_dataset
-from utils import load_model, plot_comparison
+
+def test(model, dataloader, device):
+    model.eval()
+
+    score = 0
+    predictions = []
+    for image, mask in dataloader:
+        image = image.to(device)
+        mask = mask.to(device, dtype=torch.long).squeeze(1)
+
+        predicted_mask = model(image)
+        predictions.append(
+            {
+                "image": image.detach().cpu().squeeze(0).permute(1, 2, 0).numpy(),
+                "mask": mask.detach().cpu().squeeze(0).numpy(),
+                "pred": mask_to_image(predicted_mask.detach().argmax(1).cpu().squeeze(0).numpy()),
+            }
+        )
+
+        score += dice_score(
+            F.softmax(predicted_mask, 1).float(),  # turn predicted pixels into probabilities
+            F.one_hot(mask, 2)
+            .permute(0, 3, 1, 2)
+            .float(),  # turn label mask to one-hot encoding to match shape (B, 2, H, W)
+        ).item()
+
+    # average over batches
+    score /= len(dataloader)
+
+    return score, predictions
 
 
 def get_args():

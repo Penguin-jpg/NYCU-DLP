@@ -2,13 +2,13 @@ import argparse
 import os
 
 import torch
-from torch import nn, optim
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
-
 from evaluate import evaluate
+from models.resnet34_unet import ResNet34Unet
 from models.unet import UNet
 from oxford_pet import load_dataset
+from torch import nn, optim
+from torch.utils.data import DataLoader
 from utils import dice_score, plot_loss
 
 
@@ -42,7 +42,7 @@ def train(
                     F.softmax(predicted_mask, 1).float(),  # turn predicted pixels into probabilities
                     F.one_hot(mask, 2)
                     .permute(0, 3, 1, 2)
-                    .float(),  # turn label mask to one-hot encoding to match shape (B, 3, H, W)
+                    .float(),  # turn label mask to one-hot encoding to match shape (B, 2, H, W)
                 )
             )
 
@@ -72,6 +72,7 @@ def train(
 
 def get_args():
     parser = argparse.ArgumentParser(description="Train the UNet on images and target masks")
+    parser.add_argument("--model", type=str, default="unet", help="choose unet or resnet_unet to train")
     parser.add_argument("--data_path", type=str, help="path of the input data")
     parser.add_argument("--epochs", "-e", type=int, default=5, help="number of epochs")
     parser.add_argument("--batch_size", "-b", type=int, default=1, help="batch size")
@@ -90,19 +91,28 @@ if __name__ == "__main__":
     valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    unet = UNet(
-        in_channels=3,
-        out_channels=2,
-        base_channels=64,
-        channel_multipliers=[1, 2, 4, 8],
-    )
-    unet.to(device)
+
+    if args.model == "unet":
+        model = UNet(
+            in_channels=3,
+            out_channels=2,
+            base_channels=64,
+            channel_multipliers=[1, 2, 4, 8],
+        )
+    else:
+        model = ResNet34Unet(
+            in_channels=3,
+            out_channels=2,
+        )
+
+    model.to(device)
+
     # optimizer = optim.SGD(unet.parameters(), lr=args.learning_rate, momentum=0.99)
-    optimizer = optim.Adam(unet.parameters(), lr=args.learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     loss_fn = nn.CrossEntropyLoss()
 
     train(
-        unet,
+        model,
         train_loader,
         valid_loader,
         args.epochs,

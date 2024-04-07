@@ -1,16 +1,15 @@
 import os
-import torch
-import shutil
-import numpy as np
-
-from PIL import Image
-from tqdm import tqdm
-from urllib.request import urlretrieve
-from torchvision import transforms
-from utils import pad_image
-from torch.utils.data import Dataset
-import torchvision.transforms.functional as TF
 import random
+import shutil
+from urllib.request import urlretrieve
+
+import numpy as np
+import torchvision.transforms.functional as TF
+from PIL import Image
+from torch.utils.data import Dataset
+from torchvision import transforms
+from tqdm import tqdm
+from utils import pad_image
 
 
 class OxfordPetDataset(Dataset):

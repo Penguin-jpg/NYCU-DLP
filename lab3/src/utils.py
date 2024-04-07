@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from models.unet import UNet
 from models.resnet34_unet import ResNet34Unet
+from models.unet import UNet
 from torchvision.transforms.functional import pad
 
 
@@ -10,7 +10,8 @@ from torchvision.transforms.functional import pad
 # 1. https://github.com/milesial/Pytorch-UNet/blob/master/utils/dice_score.py
 # 2. https://blog.csdn.net/ODIMAYA/article/details/123844795
 def binary_dice_score(pred_mask, gt_mask):
-    # dice score = 2 * intersection / (|pred_mask| + |gt_mask|) (denominator is union)
+    # dice score = 2 * intersection / (|pred_mask| + |gt_mask|) (denominator is
+    # the sum of the number of non-zero elements of the two masks)
     B, H, W = pred_mask.shape
 
     # since we consider the whole image, we can reduce the height and width into a single dimension

@@ -1,8 +1,9 @@
 # Implement your UNet model here
+import math
+
 import torch
 from torch import nn
 from torchvision.transforms.functional import center_crop
-import math
 
 
 class ConvBlock(nn.Module):
@@ -96,7 +97,7 @@ class Decoder(nn.Module):
             in_channels = out_channels
 
         # to Sequential
-        self.blocks = nn.Sequential(*self.blocks)
+        # self.blocks = nn.Sequential(*self.blocks)
 
     def forward(self, x, encoder_results):
         # reverse the encoder results because concat from back to front
