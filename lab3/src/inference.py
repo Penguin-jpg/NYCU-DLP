@@ -6,9 +6,11 @@ from oxford_pet import load_dataset
 from torch import nn
 from torch.utils.data import DataLoader
 from utils import dice_score, load_model, mask_to_image, plot_comparison
+import os
+from PIL import Image
 
 
-def test(model, dataloader, device):
+def inference(model, dataloader, device):
     model.eval()
 
     score = 0
@@ -44,6 +46,7 @@ def get_args():
     parser.add_argument("--model", default="MODEL.pth", help="path to the stored model weoght")
     parser.add_argument("--data_path", type=str, help="path to the input data")
     parser.add_argument("--batch_size", "-b", type=int, default=1, help="batch size")
+    parser.add_argument("--save_predictions", action="store_true", help="save predicted mask")
 
     return parser.parse_args()
 
@@ -53,11 +56,17 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(args.model, device)
-    test_dataset = load_dataset(data_path=args.data_path, mode="test")
+    test_dataset = load_dataset(data_path=args.data_path, mode="test", pad=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
     loss_fn = nn.CrossEntropyLoss()
-    score, predictions = test(model, test_loader, device)
-    plot_comparison(predictions[-1])
+    score, predictions = inference(model, test_loader, device)
+    # plot_comparison(predictions[-1])
+
+    if args.save_predictions:
+        os.makedirs("predictions", exist_ok=True)
+        for i, prediction in enumerate(predictions):
+            predicted_mask = Image.fromarray(prediction["pred"] * 255).convert("RGB")
+            predicted_mask.save(os.path.join("predictions", f"{i}.png"))
 
     print(f"Test dice score: {score:.4f}")

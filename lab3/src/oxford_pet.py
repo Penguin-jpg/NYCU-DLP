@@ -7,18 +7,17 @@ import numpy as np
 import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data import Dataset
-from torchvision import transforms
 from tqdm import tqdm
 from utils import pad_image
 
 
 class OxfordPetDataset(Dataset):
-    def __init__(self, root, mode="train"):
+    def __init__(self, root, mode="train", pad=True):
         assert mode in {"train", "valid", "test"}
 
         self.root = root
         self.mode = mode
-        # self.transform = transform
+        self.pad = pad
 
         self.images_directory = os.path.join(self.root, "images")
         self.masks_directory = os.path.join(self.root, "annotations", "trimaps")
@@ -35,6 +34,9 @@ class OxfordPetDataset(Dataset):
         image = Image.open(image_path).convert("RGB")
         trimap = np.array(Image.open(mask_path))
         mask = Image.fromarray(self._preprocess_mask(trimap))
+        if self.pad:
+            image = pad_image(image)
+            mask = pad_image(mask)
 
         if self.mode == "train" or self.mode == "valid":
             image, mask = self.transform(image, mask, flip=True)
@@ -136,5 +138,5 @@ def extract_archive(filepath):
         shutil.unpack_archive(filepath, extract_dir)
 
 
-def load_dataset(data_path, mode):
-    return OxfordPetDataset(data_path, mode)
+def load_dataset(data_path, mode, pad=True):
+    return OxfordPetDataset(data_path, mode, pad)

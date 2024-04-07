@@ -60,12 +60,12 @@ def train(
         train_losses.append(train_loss)
         val_losses.append(val_loss)
 
+        print(f"Epoch {epoch}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+
         if best_val_loss is None or val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), model_path)
             print(f"Model saved at {model_path}")
-
-        print(f"Epoch {epoch}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
 
     plot_loss(train_losses, val_losses)
 
@@ -84,8 +84,8 @@ def get_args():
 if __name__ == "__main__":
     args = get_args()
 
-    train_dataset = load_dataset(data_path=args.data_path, mode="train")
-    valid_dataset = load_dataset(data_path=args.data_path, mode="valid")
+    train_dataset = load_dataset(data_path=args.data_path, mode="train", pad=True)
+    valid_dataset = load_dataset(data_path=args.data_path, mode="valid", pad=True)
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
@@ -118,6 +118,6 @@ if __name__ == "__main__":
         args.epochs,
         loss_fn,
         optimizer,
-        os.path.join("saved_models", "UNet.pth"),
+        os.path.join("saved_models", f"{args.model}.pth"),
         device,
     )
