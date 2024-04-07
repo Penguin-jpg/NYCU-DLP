@@ -121,13 +121,14 @@ def print_result(model_name, best_train_accuracy, best_test_accuracy):
         )
 
 
-def plot_loss(losses):
-    plt.title("Loss Curve")
+def plot_loss(model, losses):
+    plt.title(f"{model} Loss Curve")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.plot(losses)
-    plt.savefig("loss.png")
+    plt.savefig(f"{model}_loss.png")
     plt.show()
+    plt.clf()
 
 
 def plot_accuracy(vgg_train_accuracy, vgg_val_accuracy, resnet_train_accuracy, resnet_val_accuracy):
@@ -218,8 +219,8 @@ if __name__ == "__main__":
     print_result("vgg19", max(vgg_train_accuracy), vgg_test_accuracy)
     print_result("resnet50", max(resnet_train_accuracy), resnet_test_accuracy)
 
-    # plot_loss(vgg_losses)
-    # plot_loss(resnet_losses)
+    plot_loss("vgg", vgg_losses)
+    plot_loss("resnet", resnet_losses)
 
     plot_accuracy(
         float_to_percent(vgg_train_accuracy),
