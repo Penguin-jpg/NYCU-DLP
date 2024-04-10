@@ -9,7 +9,7 @@ from models.unet import UNet
 from oxford_pet import load_dataset
 from torch import nn, optim
 from torch.utils.data import DataLoader
-from utils import dice_score, plot_loss
+from utils import dice_score, plot_score, plot_loss
 
 
 def train(
@@ -23,50 +23,65 @@ def train(
     device,
 ):
     train_losses = []
+    train_scores = []
     val_losses = []
+    val_scores = []
 
-    best_val_loss = None
+    best_val_score = None
 
     for epoch in range(num_epochs):
         model.train()
 
         train_loss = 0
+        train_score = 0
         for image, mask in train_loader:
             image = image.to(device)
             # remove channel dimension and cast to long (for cross entropy)
             mask = mask.to(device, dtype=torch.long).squeeze(1)
             predicted_mask = model(image)
-            loss = loss_fn(predicted_mask, mask) + (
-                1
-                - dice_score(
-                    F.softmax(predicted_mask, 1).float(),  # turn predicted pixels into probabilities
-                    F.one_hot(mask, 2)
-                    .permute(0, 3, 1, 2)
-                    .float(),  # turn label mask to one-hot encoding to match shape (B, 2, H, W)
-                )
+            score = dice_score(
+                F.softmax(predicted_mask, 1).float(),  # turn predicted pixels into probabilities
+                F.one_hot(mask, 2)
+                .permute(0, 3, 1, 2)
+                .float(),  # turn label mask to one-hot encoding to match shape (B, 2, H, W)
             )
+            loss = loss_fn(predicted_mask, mask) + (1 - score)
 
+            train_score += score.item()
             train_loss += loss.item()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        val_loss = evaluate(model, valid_loader, loss_fn, device)
-
+        train_score /= len(train_loader)
         train_loss /= len(train_loader)
-        val_loss /= len(valid_loader)
+
+        val_score, val_loss = evaluate(model, valid_loader, loss_fn, device)
 
         train_losses.append(train_loss)
+        train_scores.append(train_score)
         val_losses.append(val_loss)
+        val_scores.append(val_score)
 
-        print(f"Epoch {epoch}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+        print(
+            f"Epoch {epoch}, Train Loss: {train_loss:.4f}, Train Score: {train_score:.4f}, Val Loss: {val_loss:.4f}, Val Score: {val_score:.4f}"
+        )
 
-        if best_val_loss is None or val_loss < best_val_loss:
-            best_val_loss = val_loss
-            torch.save(model.state_dict(), model_path)
+        state_dict = {
+            "model": model.state_dict(),
+            "train_losses": train_losses,
+            "train_scores": train_scores,
+            "val_losses": val_losses,
+            "val_scores": val_scores,
+        }
+
+        if best_val_score is None or val_score > best_val_score:
+            best_val_score = val_score
+            torch.save(state_dict, model_path)
             print(f"Model saved at {model_path}")
 
+    plot_score(train_scores, val_scores)
     plot_loss(train_losses, val_losses)
 
 

@@ -69,6 +69,33 @@ def plot_loss(train_losses, val_losses):
     plt.legend()
     plt.savefig("loss.png")
     plt.show()
+    plt.clf()
+
+
+def plot_score(train_scores, val_scores):
+    plt.title("Training and Validation Score")
+    plt.xlabel("Epoch")
+    plt.ylabel("Dice Score")
+    plt.plot(train_scores, label="Training Score")
+    plt.plot(val_scores, label="Validation Score")
+    plt.legend()
+    plt.savefig("score.png")
+    plt.show()
+    plt.clf()
+
+
+def plot_score_comparison(unet_train_scores, unet_val_scores, resnet_train_scores, resnet_val_scores):
+    plt.title("Training and Validation Score Comparison")
+    plt.xlabel("Epoch")
+    plt.ylabel("Dice Score")
+    plt.plot(unet_train_scores, label="UNet Training Score")
+    plt.plot(unet_val_scores, label="UNet Validation Score")
+    plt.plot(resnet_train_scores, label="ResNet34 + UNet Training Score")
+    plt.plot(resnet_val_scores, label="ResNet34 + UNet Validation Score")
+    plt.legend()
+    plt.savefig("score_comparison.png")
+    plt.show()
+    plt.clf()
 
 
 def mask_to_image(mask):
@@ -78,7 +105,7 @@ def mask_to_image(mask):
     return mask
 
 
-def plot_comparison(predicition):
+def save_comparison(predicition, file_path):
     plt.suptitle("Test Results")
     plt.subplot(1, 3, 1)
     plt.title("Image")
@@ -90,13 +117,12 @@ def plot_comparison(predicition):
     plt.title("Prediction")
     plt.imshow(predicition["pred"])
     plt.tight_layout()
-    plt.savefig("prediction.png")
-    plt.show()
+    plt.savefig(file_path)
 
 
 def load_model(model_path, device):
     state_dict = torch.load(model_path, map_location="cpu")
-    if "ResNet34" in model_path:
+    if "ResNet" in model_path:
         model = ResNet34Unet(in_channels=3, out_channels=2)
     else:
         model = UNet(
@@ -106,7 +132,7 @@ def load_model(model_path, device):
             channel_multipliers=[1, 2, 4, 8],
         )
 
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state_dict["model"])
     model.to(device)
     model.eval()
-    return model
+    return model, state_dict["train_scores"], state_dict["val_scores"]

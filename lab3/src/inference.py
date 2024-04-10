@@ -5,9 +5,8 @@ import torch.nn.functional as F
 from oxford_pet import load_dataset
 from torch import nn
 from torch.utils.data import DataLoader
-from utils import dice_score, load_model, mask_to_image, plot_comparison
+from utils import dice_score, load_model, mask_to_image, save_comparison
 import os
-from PIL import Image
 
 
 def inference(model, dataloader, device):
@@ -20,13 +19,14 @@ def inference(model, dataloader, device):
         mask = mask.to(device, dtype=torch.long).squeeze(1)
 
         predicted_mask = model(image)
-        predictions.append(
-            {
-                "image": image.detach().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-                "mask": mask.detach().cpu().squeeze(0).numpy(),
-                "pred": mask_to_image(predicted_mask.detach().argmax(1).cpu().squeeze(0).numpy()),
-            }
-        )
+        for i in range(predicted_mask.shape[0]):
+            predictions.append(
+                {
+                    "image": image[i].detach().cpu().squeeze(0).clip(0, 1).permute(1, 2, 0).numpy(),
+                    "mask": mask[i].detach().cpu().squeeze(0).clip(0, 1).numpy(),
+                    "pred": mask_to_image(predicted_mask[i].detach().argmax(0).cpu().squeeze(0).clip(0, 1).numpy()),
+                }
+            )
 
         score += dice_score(
             F.softmax(predicted_mask, 1).float(),  # turn predicted pixels into probabilities
@@ -55,18 +55,14 @@ if __name__ == "__main__":
     args = get_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = load_model(args.model, device)
+    model, _, _ = load_model(args.model, device)
     test_dataset = load_dataset(data_path=args.data_path, mode="test", pad=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
-    loss_fn = nn.CrossEntropyLoss()
     score, predictions = inference(model, test_loader, device)
-    # plot_comparison(predictions[-1])
+    print(f"Test dice score: {score:.4f}")
 
     if args.save_predictions:
         os.makedirs("predictions", exist_ok=True)
         for i, prediction in enumerate(predictions):
-            predicted_mask = Image.fromarray(prediction["pred"] * 255).convert("RGB")
-            predicted_mask.save(os.path.join("predictions", f"{i}.png"))
-
-    print(f"Test dice score: {score:.4f}")
+            save_comparison(prediction, os.path.join("predictions", f"{i}.png"))
