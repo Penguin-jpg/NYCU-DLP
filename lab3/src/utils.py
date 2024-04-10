@@ -106,17 +106,11 @@ def mask_to_image(mask):
 
 
 def save_comparison(predicition, file_path):
-    plt.suptitle("Test Results")
-    plt.subplot(1, 3, 1)
-    plt.title("Image")
+    plt.suptitle("Test Result")
+
     plt.imshow(predicition["image"])
-    plt.subplot(1, 3, 2)
-    plt.title("GT")
-    plt.imshow(predicition["mask"])
-    plt.subplot(1, 3, 3)
-    plt.title("Prediction")
-    plt.imshow(predicition["pred"])
-    plt.tight_layout()
+    # to overlay mask on the image, we find where the mask covered the image
+    plt.imshow(predicition["pred"], cmap="Greens", alpha=0.8 * (predicition["pred"] > 0))
     plt.savefig(file_path)
 
 
