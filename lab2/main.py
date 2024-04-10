@@ -81,7 +81,8 @@ def train(
             best_accuracy = val_accuracy
             torch.save(state_dict, os.path.join(model_path, "best.pt"))
             print(f"Model saved at {model_path}")
-        elif epoch == num_epochs - 1:
+
+        if epoch == num_epochs - 1:
             torch.save(state_dict, os.path.join(model_path, f"{epoch}.pt"))
             print(f"Model saved at {model_path}")
 
@@ -168,42 +169,46 @@ if __name__ == "__main__":
         ]
     )
 
-    # train_dataset = ButterflyMothLoader(root="dataset", mode="train", transform=train_transform)
-    # train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    # val_dataset = ButterflyMothLoader(root="dataset", mode="valid", transform=train_transform)
-    # val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    os.makedirs("checkpoints", exist_ok=True)
+    os.makedirs("checkpoints/vgg19", exist_ok=True)
+    os.makedirs("checkpoints/resnet50", exist_ok=True)
+
+    train_dataset = ButterflyMothLoader(root="dataset", mode="train", transform=train_transform)
+    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    val_dataset = ButterflyMothLoader(root="dataset", mode="valid", transform=train_transform)
+    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_dataset = ButterflyMothLoader(root="dataset", mode="test", transform=test_transform)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
     # train vgg19
-    # vgg = VGG19()
-    # vgg.to(device)
-    # vgg_losses, vgg_train_accuracy, vgg_val_accuracy = train(
-    #     vgg,
-    #     train_dataloader,
-    #     val_dataloader,
-    #     NUM_EPOCHS,
-    #     torch.nn.CrossEntropyLoss(),
-    #     # torch.optim.Adam(vgg.parameters(), lr=1e-2),
-    #     torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
-    #     os.path.join("checkpoints", "vgg19"),
-    #     device,
-    # )
+    vgg = VGG19()
+    vgg.to(device)
+    vgg_losses, vgg_train_accuracy, vgg_val_accuracy = train(
+        vgg,
+        train_dataloader,
+        val_dataloader,
+        NUM_EPOCHS,
+        torch.nn.CrossEntropyLoss(),
+        # torch.optim.Adam(vgg.parameters(), lr=1e-2),
+        torch.optim.SGD(vgg.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4),
+        os.path.join("checkpoints", "vgg19"),
+        device,
+    )
 
     # train resnet50
-    # resnet = ResNet50()
-    # resnet.to(device)
-    # resnet_losses, resnet_train_accuracy, resnet_val_accuracy = train(
-    #     resnet,
-    #     train_dataloader,
-    #     val_dataloader,
-    #     NUM_EPOCHS,
-    #     torch.nn.CrossEntropyLoss(),
-    #     # torch.optim.Adam(resnet.parameters(), lr=1e-4),
-    #     torch.optim.SGD(resnet.parameters(), lr=1e-1, momentum=0.9, weight_decay=1e-4),
-    #     os.path.join("checkpoints", "resnet50"),
-    #     device,
-    # )
+    resnet = ResNet50()
+    resnet.to(device)
+    resnet_losses, resnet_train_accuracy, resnet_val_accuracy = train(
+        resnet,
+        train_dataloader,
+        val_dataloader,
+        NUM_EPOCHS,
+        torch.nn.CrossEntropyLoss(),
+        # torch.optim.Adam(resnet.parameters(), lr=1e-4),
+        torch.optim.SGD(resnet.parameters(), lr=1e-1, momentum=0.9, weight_decay=1e-4),
+        os.path.join("checkpoints", "resnet50"),
+        device,
+    )
 
     # show training and testing results
     vgg, vgg_train_accuracy, vgg_val_accuracy, vgg_losses = load_model(
