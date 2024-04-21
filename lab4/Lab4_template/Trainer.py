@@ -79,9 +79,12 @@ class kl_annealing:
         for i in range(n_cycle):
             # beta and a counter to count how many iterations
             value, num_iters = start, 0
-            current_iter = int(num_iters + i * num_epochs_per_cycle)
-            # if the current number of iterations >= the total number of iterations
-            while value <= stop and current_iter < n_iter:
+            while value <= stop:
+                current_iter = int(num_iters + i * num_epochs_per_cycle)
+                # if the current number of iterations >= the total number of iterations
+                if current_iter >= n_iter:
+                    break
+
                 schedule[current_iter] = value
                 value += step
                 num_iters += 1
@@ -330,8 +333,8 @@ class VAE_Model(nn.Module):
 
     def teacher_forcing_ratio_update(self):
         # TODO
-        if self.current_epoch != 0 and self.current_epoch % self.args.tfr_sde == 0:
-            self.args.tfr *= self.args.tfr_d_step
+        if self.current_epoch % self.tfr_sde == 0:
+            self.tfr *= self.tfr_d_step
 
     def tqdm_bar(self, mode, pbar, loss, lr):
         pbar.set_description(

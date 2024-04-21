@@ -156,7 +156,7 @@ class Test_model(VAE_Model):
         # label_list is used to store the label seq
         # Both list will be used to make gif
         decoded_frame_list = [img[0].cpu()]
-        label_list = []
+        label_list = [label[0].cpu()]
 
         # TODO
         with torch.no_grad():
