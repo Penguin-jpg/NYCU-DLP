@@ -130,47 +130,21 @@ class VAE_Model(nn.Module):
         self.batch_size = args.batch_size
 
     def forward(self, img, label):
-        # TODO
-        # img: (B, video_len, C, H, W)
-        # label: (B, video_len, C, H, W)
-
-        # let video_len=2, for current and next, so it is easier to control teacher forcing
-
-        current_frame, next_frame = img[:, 0], img[:, 1]
-        current_label, next_label = label[:, 0], label[:, 1]
-
-        # apply transformation
-        current_frame = self.frame_transformation(current_frame)
-        next_frame = self.frame_transformation(next_frame)
-        current_label = self.label_transformation(current_label)
-        next_label = self.label_transformation(next_label)
-
-        # use next frame to predict noise
-        z, mu, logvar = self.Gaussian_Predictor(next_frame, next_label)
-
-        # use current frame, next label, and z to decode
-        decoded = self.Decoder_Fusion(current_frame, next_label, z)
-        # decoded = self.Decoder_Fusion(current_frame, current_label, z)
-
-        # generate the predicted next frames
-        predicted_frame = self.Generator(decoded)
-
-        return predicted_frame, mu, logvar
+        pass
 
     def training_stage(self):
         for i in range(self.args.num_epoch):
             train_loader = self.train_dataloader()
             adapt_TeacherForcing = True if random.random() < self.tfr else False
 
+            self.train_losses = []
+            self.val_losses = []
+
             for img, label in (pbar := tqdm(train_loader, ncols=120)):
                 img = img.to(self.args.device)
                 label = label.to(self.args.device)
                 loss = self.training_one_step(img, label, adapt_TeacherForcing)
-
-                # backpropagation (don't know why, but TA didn't add this)
-                self.optim.zero_grad()
-                loss.backward()
-                self.optimizer_step()
+                self.train_losses.append(loss.item())
 
                 beta = self.kl_annealing.get_beta()
                 if adapt_TeacherForcing:
@@ -212,58 +186,99 @@ class VAE_Model(nn.Module):
             img = img.to(self.args.device)
             label = label.to(self.args.device)
             loss = self.val_one_step(img, label)
+            self.val_losses.append(loss.item())
             self.tqdm_bar(
                 "val", pbar, loss.detach().cpu(), lr=self.scheduler.get_last_lr()[0]
             )
 
     def training_one_step(self, img, label, adapt_TeacherForcing):
         # TODO
+        # img: (B, video_len, C, H, W)
+        # label: (B, video_len, C, H, W)
+        B, L, C, H, W = img.shape
 
-        # we have to predict first
-        predicted_frame, mu, logvar = self.forward(img[:, 0:2], label[:, 0:2])
-        video_len = img.shape[1]
-        # total loss = MSE + KL * beta
-        loss = (
-            self.mse_criterion(predicted_frame, img[:, 1])
-            + kl_criterion(mu, logvar, img.shape[0]) * self.kl_annealing.get_beta()
-        )
-        for i in range(2, video_len):
-            if adapt_TeacherForcing:
-                predicted_frame, mu, logvar = self.forward(
-                    img[:, i - 1 : i + 1], label[:, i - 1 : i + 1]
-                )
+        predicted_frame = None
+        loss = 0
+        for i in range(1, L):
+            # let video_len=2, for current and next, so it is easier to control teacher forcing
+            if adapt_TeacherForcing or predicted_frame is None:
+                current_frame, next_frame = img[:, i - 1], img[:, i]
             else:
-                # unsqueeze for video_len dimension
-                input_image = torch.cat(
-                    [predicted_frame.unsqueeze(1), img[:, i].unsqueeze(1)], dim=1
-                )
-                predicted_frame, mu, logvar = self.forward(
-                    input_image, label[:, i - 1 : i + 1]
-                )
+                current_frame, next_frame = predicted_frame, img[:, i]
 
+            current_label, next_label = label[:, i - 1], label[:, i]
+
+            # apply transformation
+            current_frame = self.frame_transformation(current_frame)
+            next_frame = self.frame_transformation(next_frame)
+            current_label = self.label_transformation(current_label)
+            next_label = self.label_transformation(next_label)
+
+            # use next frame to predict noise
+            z, mu, logvar = self.Gaussian_Predictor(next_frame, next_label)
+
+            # use current frame, next label, and z to decode
+            decoded = self.Decoder_Fusion(current_frame, next_label, z)
+
+            # generate the predicted next frames
+            predicted_frame = self.Generator(decoded)
+
+            # total loss = MSE + KL * beta
             loss += (
                 self.mse_criterion(predicted_frame, img[:, i])
                 + kl_criterion(mu, logvar, img.shape[0]) * self.kl_annealing.get_beta()
             )
+
+        loss /= L
+
+        # backpropagation
+        self.optim.zero_grad()
+        loss.backward()
+        self.optimizer_step()
 
         return loss
 
     def val_one_step(self, img, label):
         # TODO
         with torch.no_grad():
-            video_len = img.shape[1]
+            # img: (B, video_len, C, H, W)
+            # label: (B, video_len, C, H, W)
+            B, L, C, H, W = img.shape
+
+            predicted_frame = None
             loss = 0
+            for i in range(1, L):
+                # let video_len=2, for current and next, so it is easier to control teacher forcing
+                if predicted_frame is None:
+                    current_frame, next_frame = img[:, i - 1], img[:, i]
+                else:
+                    current_frame, next_frame = predicted_frame, img[:, i]
 
-            for i in range(1, video_len):
-                predicted_frame, mu, logvar = self.forward(
-                    img[:, i - 1 : i + 1], label[:, i - 1 : i + 1]
-                )
+                current_label, next_label = label[:, i - 1], label[:, i]
 
+                # apply transformation
+                current_frame = self.frame_transformation(current_frame)
+                next_frame = self.frame_transformation(next_frame)
+                current_label = self.label_transformation(current_label)
+                next_label = self.label_transformation(next_label)
+
+                # use next frame to predict noise
+                z, mu, logvar = self.Gaussian_Predictor(next_frame, next_label)
+
+                # use current frame, next label, and z to decode
+                decoded = self.Decoder_Fusion(current_frame, next_label, z)
+
+                # generate the predicted next frames
+                predicted_frame = self.Generator(decoded)
+
+                # total loss = MSE + KL * beta
                 loss += (
                     self.mse_criterion(predicted_frame, img[:, i])
                     + kl_criterion(mu, logvar, img.shape[0])
                     * self.kl_annealing.get_beta()
                 )
+
+            loss /= L
 
         return loss
 
@@ -282,10 +297,15 @@ class VAE_Model(nn.Module):
         )
 
     def train_dataloader(self):
+        # TODO
         transform = transforms.Compose(
             [
                 transforms.Resize((self.args.frame_H, self.args.frame_W)),
+                transforms.ColorJitter(brightness=0.25, saturation=0.25, contrast=0.25),
                 transforms.ToTensor(),
+                # transforms.Normalize(
+                #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                # ),
             ]
         )
 
@@ -313,6 +333,9 @@ class VAE_Model(nn.Module):
             [
                 transforms.Resize((self.args.frame_H, self.args.frame_W)),
                 transforms.ToTensor(),
+                # transforms.Normalize(
+                #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                # ),
             ]
         )
         dataset = Dataset_Dance(
@@ -351,6 +374,8 @@ class VAE_Model(nn.Module):
                 "lr": self.scheduler.get_last_lr()[0],
                 "tfr": self.tfr,
                 "last_epoch": self.current_epoch,
+                "train_losses": self.train_losses,
+                "val_losses": self.val_losses,
             },
             path,
         )
@@ -375,6 +400,16 @@ class VAE_Model(nn.Module):
     def optimizer_step(self):
         nn.utils.clip_grad_norm_(self.parameters(), 1.0)
         self.optim.step()
+
+    def plot_loss(self):
+        plt.title("Training and Validation Losses")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.plot(self.train_losses, label="Training Loss")
+        plt.plot(self.val_losses, label="Validation Loss")
+        plt.legend()
+        plt.savefig("loss.png")
+        plt.show()
 
 
 def main(args):

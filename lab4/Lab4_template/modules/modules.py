@@ -76,8 +76,10 @@ class Gaussian_Predictor(nn.Sequential):
         # TODO
         # sample from N(0, 1) with shape of logvar
         eps = torch.randn_like(logvar)
-        # turn logvar into std -> sqrt(exp(logvar))=sqrt(var)=std
-        std = torch.sqrt(torch.exp(logvar))
+        # turn logvar into std -> 0.5*logvar=log(var)^{1/2}
+        # -> exp(log(var)^{1/2})=var^{1/2}=std
+        # std = torch.sqrt(torch.exp(logvar))
+        std = torch.exp(0.5 * logvar)
         # reparameterize N(mu, std) = mu + std * eps
         return mu + std * eps
 

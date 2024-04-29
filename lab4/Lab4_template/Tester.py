@@ -158,17 +158,37 @@ class Test_model(VAE_Model):
         decoded_frame_list = [img[0].cpu()]
         label_list = [label[0].cpu()]
 
+        L, B, C, H, W = label.shape
+
         # TODO
         with torch.no_grad():
-            video_len = label.shape[0]
+            predicted_frame = None
+            for i in range(1, L):
+                if predicted_frame is None:
+                    current_frame = img[0]
+                else:
+                    current_frame = predicted_frame
 
-            # predict the next frame first so it is easier to write the loop
-            predicted_frame = self.forward(img[0], label[1])
-            decoded_frame_list.append(predicted_frame.cpu())
-            label_list.append(label[1].cpu())
+                next_label = label[i]
 
-            for i in range(2, video_len):
-                predicted_frame = self.forward(predicted_frame, label[i])
+                # apply transformation
+                current_frame = self.frame_transformation(current_frame)
+                next_label = self.label_transformation(next_label)
+
+                # during inference, we can directly sample z from N(0, 1)
+                z = torch.randn(
+                    1,
+                    self.args.N_dim,
+                    self.args.frame_H,
+                    self.args.frame_W,
+                    device=self.args.device,
+                )
+
+                # use current frame, next label, and z to decode
+                decoded = self.Decoder_Fusion(current_frame, next_label, z)
+
+                # generate the predicted next frame
+                predicted_frame = self.Generator(decoded)
                 decoded_frame_list.append(predicted_frame.cpu())
                 label_list.append(label[i].cpu())
 
@@ -212,6 +232,9 @@ class Test_model(VAE_Model):
             [
                 transforms.Resize((self.args.frame_H, self.args.frame_W)),
                 transforms.ToTensor(),
+                # transforms.Normalize(
+                #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                # ),
             ]
         )
         dataset = Dataset_Dance(
