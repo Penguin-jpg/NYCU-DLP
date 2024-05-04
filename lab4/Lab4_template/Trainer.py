@@ -63,14 +63,17 @@ class kl_annealing:
 
     def get_beta(self):
         # TODO
-        return self.betas[self.current_epoch]
+        if self.type == "Cyclical" or self.type == "Monotonic":
+            return self.betas[self.current_epoch]
+        else:
+            return 1.0
 
     def frange_cycle_linear(self, n_iter, start=0.0, stop=1.0, n_cycle=1, ratio=1):
         # TODO
         schedule = np.ones((n_iter,))
         # the number of iterations in each cycle
         num_epochs_per_cycle = n_iter / n_cycle
-        # actual used num_epochs
+        # the number of epochs used for climbing from 0 to 1
         num_used_epochs = num_epochs_per_cycle * ratio
         # step size of each update
         # denominator means we only need this much of epochs
@@ -96,6 +99,8 @@ class VAE_Model(nn.Module):
     def __init__(self, args):
         super(VAE_Model, self).__init__()
         self.args = args
+        self.train_losses = []
+        self.val_losses = []
 
         # Modules to transform image from RGB-domain to feature-domain
         self.frame_transformation = RGB_Encoder(3, args.F_dim)
@@ -137,14 +142,12 @@ class VAE_Model(nn.Module):
             train_loader = self.train_dataloader()
             adapt_TeacherForcing = True if random.random() < self.tfr else False
 
-            self.train_losses = []
-            self.val_losses = []
-
+            train_loss = 0
             for img, label in (pbar := tqdm(train_loader, ncols=120)):
                 img = img.to(self.args.device)
                 label = label.to(self.args.device)
                 loss = self.training_one_step(img, label, adapt_TeacherForcing)
-                self.train_losses.append(loss.item())
+                train_loss += loss.item()
 
                 beta = self.kl_annealing.get_beta()
                 if adapt_TeacherForcing:
@@ -173,6 +176,8 @@ class VAE_Model(nn.Module):
                     )
                 )
 
+            train_loss /= len(train_loader)
+            self.train_losses.append(train_loss)
             self.eval()
             self.current_epoch += 1
             self.scheduler.step()
@@ -182,14 +187,17 @@ class VAE_Model(nn.Module):
     @torch.no_grad()
     def eval(self):
         val_loader = self.val_dataloader()
+        val_loss = 0
         for img, label in (pbar := tqdm(val_loader, ncols=120)):
             img = img.to(self.args.device)
             label = label.to(self.args.device)
             loss = self.val_one_step(img, label)
-            self.val_losses.append(loss.item())
+            val_loss += loss.item()
             self.tqdm_bar(
                 "val", pbar, loss.detach().cpu(), lr=self.scheduler.get_last_lr()[0]
             )
+        val_loss /= len(val_loader)
+        self.val_losses.append(val_loss)
 
     def training_one_step(self, img, label, adapt_TeacherForcing):
         # TODO
@@ -387,6 +395,10 @@ class VAE_Model(nn.Module):
             self.load_state_dict(checkpoint["state_dict"], strict=True)
             self.args.lr = checkpoint["lr"]
             self.tfr = checkpoint["tfr"]
+            if "train_losses" in checkpoint:
+                self.train_losses = checkpoint["train_losses"]
+            if "val_losses" in checkpoint:
+                self.val_losses = checkpoint["val_losses"]
 
             self.optim = optim.Adam(self.parameters(), lr=self.args.lr)
             self.scheduler = optim.lr_scheduler.MultiStepLR(
@@ -405,11 +417,70 @@ class VAE_Model(nn.Module):
         plt.title("Training and Validation Losses")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
+
+        # clip max value
+        for i in range(len(self.train_losses)):
+            if self.train_losses[i] > 0.2:
+                self.train_losses[i] = 0.2
+
+            if self.val_losses[i] > 0.2:
+                self.val_losses[i] = 0.2
+
         plt.plot(self.train_losses, label="Training Loss")
         plt.plot(self.val_losses, label="Validation Loss")
         plt.legend()
         plt.savefig("loss.png")
         plt.show()
+        plt.clf()
+
+    def plot_PSNR(self):
+        psnr_scores = []
+        val_loader = self.val_dataloader()
+        total = 0
+        for img, label in (pbar := tqdm(val_loader, ncols=120)):
+            img = img.to(self.args.device)
+            label = label.to(self.args.device)
+            with torch.no_grad():
+
+                B, L, C, H, W = img.shape
+
+                predicted_frame = None
+                for i in range(1, L):
+                    if predicted_frame is None:
+                        current_frame, next_frame = img[:, i - 1], img[:, i]
+                    else:
+                        current_frame, next_frame = predicted_frame, img[:, i]
+
+                    current_label, next_label = label[:, i - 1], label[:, i]
+
+                    # apply transformation
+                    current_frame = self.frame_transformation(current_frame)
+                    next_frame = self.frame_transformation(next_frame)
+                    current_label = self.label_transformation(current_label)
+                    next_label = self.label_transformation(next_label)
+
+                    # use next frame to predict noise
+                    z, mu, logvar = self.Gaussian_Predictor(next_frame, next_label)
+
+                    # use current frame, next label, and z to decode
+                    decoded = self.Decoder_Fusion(current_frame, next_label, z)
+
+                    # generate the predicted next frames
+                    predicted_frame = self.Generator(decoded)
+
+                    psnr = Generate_PSNR(img[:, i], predicted_frame).item()
+                    psnr_scores.append(psnr)
+                    total += psnr
+
+        total /= len(psnr_scores)
+        plt.title("Per frame Quality (PSNR)")
+        plt.plot(
+            np.arange(len(psnr_scores)), psnr_scores, label=f"Avg_PSNR: {total:.3f}"
+        )
+        plt.legend()
+        plt.savefig("psnr.png")
+        plt.show()
+        plt.clf()
 
 
 def main(args):
@@ -422,6 +493,10 @@ def main(args):
         model.eval()
     else:
         model.training_stage()
+
+    if args.store_visualization:
+        model.plot_loss()
+        model.plot_PSNR()
 
 
 if __name__ == "__main__":

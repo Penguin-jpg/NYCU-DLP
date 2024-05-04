@@ -59,14 +59,18 @@ class ConvFFN(nn.Module):
 
 
 class DepthConv(nn.Module):
-    def __init__(self, in_ch, out_ch, depth_kernel=3, stride=1, slope=0.01, inplace=False):
+    def __init__(
+        self, in_ch, out_ch, depth_kernel=3, stride=1, slope=0.01, inplace=False
+    ):
         super().__init__()
         dw_ch = in_ch * 1
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_ch, dw_ch, 1, stride=stride),
             nn.LeakyReLU(negative_slope=slope, inplace=inplace),
         )
-        self.depth_conv = nn.Conv2d(dw_ch, dw_ch, depth_kernel, padding=depth_kernel // 2, groups=dw_ch)
+        self.depth_conv = nn.Conv2d(
+            dw_ch, dw_ch, depth_kernel, padding=depth_kernel // 2, groups=dw_ch
+        )
         self.conv2 = nn.Conv2d(dw_ch, out_ch, 1)
 
         self.adaptor = None
