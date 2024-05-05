@@ -495,7 +495,8 @@ def main(args):
         model.training_stage()
 
     if args.store_visualization:
-        model.plot_loss()
+        if hasattr(model, "train_losses") and hasattr(model, "val_losses"):
+            model.plot_loss()
         model.plot_PSNR()
 
 
