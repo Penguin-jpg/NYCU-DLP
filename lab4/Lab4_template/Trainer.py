@@ -253,6 +253,8 @@ class VAE_Model(nn.Module):
             # label: (B, video_len, C, H, W)
             B, L, C, H, W = img.shape
 
+            decoded_frame_list = [img[:, 0].cpu()]
+
             predicted_frame = None
             loss = 0
             for i in range(1, L):
@@ -278,6 +280,7 @@ class VAE_Model(nn.Module):
 
                 # generate the predicted next frames
                 predicted_frame = self.Generator(decoded)
+                decoded_frame_list.append(predicted_frame.cpu())
 
                 # total loss = MSE + KL * beta
                 loss += (
@@ -287,6 +290,11 @@ class VAE_Model(nn.Module):
                 )
 
             loss /= L
+
+        generated_frame = stack(decoded_frame_list).permute(1, 0, 2, 3, 4)
+        self.make_gif(
+            generated_frame[0], os.path.join(self.args.save_root, "pred_seq.gif")
+        )
 
         return loss
 
