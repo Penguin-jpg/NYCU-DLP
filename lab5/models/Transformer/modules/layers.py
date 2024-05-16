@@ -20,10 +20,10 @@ class MultiHeadAttention(nn.Module):
         # scale and softmax for calculate self-attention
         self.scale = 1 / math.sqrt(self.head_dim)
         self.softmax = nn.Softmax(dim=-1)
-        self.dropout = nn.Dropout(attn_drop)
+        self.attention_weights_dropout = nn.Dropout(attn_drop)
 
-        # the final projection layer
-        self.output_projection = nn.Linear(dim, dim)
+        # weight matrix for output
+        self.W_o = nn.Linear(dim, dim)
 
     def forward(self, x):
         """Hint: input x tensor shape is (batch_size, num_image_tokens, dim),
@@ -35,9 +35,6 @@ class MultiHeadAttention(nn.Module):
         """
         # batch_size and num_tokens
         B, N = x.shape[:2]
-
-        # reshape the input tensor to (num_tokens, batch_size, dim)
-        x = x.view(N, B, self.model_dim)
 
         # apply transformations (output shape: [batch_size, num_tokens, dim])
         q = self.W_q(x)
@@ -51,26 +48,35 @@ class MultiHeadAttention(nn.Module):
         # print(f"q: {q.shape}")
 
         # self-attention can be decomposed into:
-        # 1. scores = softmax(qk^T / sqrt{head_dim})
-        # 2. scores = dropout(scores)
-        # 3. attention = scores * v
+        # 1. scores = qk^T / sqrt{head_dim}
+        # 2. weights = softmax(scores)
+        # 3. weights = dropout(scores)
+        # 4. attention = weights * v
         # (note that everything is matrix multiplication)
 
         # tranpose the last two dimensions of k to perform matrix multiplication
         # output shape: [batch_size, num_heads, num_tokens, num_tokens]
-        scores = self.softmax(torch.matmul(q, k.transpose(-1, -2)) / self.scale)
-        scores = self.dropout(scores)
-        # print(f"scores: {scores.shape}")
-        # output shape: [batch_size, num_heads, num_tokens, head_dim]
+        attention_scores = torch.matmul(q, k.transpose(-1, -2)) / self.scale
+        # print(f"scores: {attention_scores.shape}")
+
+        # use softmax to get probabilities as weights and apply dropout
+        # output shape: [batch_size, num_heads, num_tokens, num_tokens]
+        attention_weights = self.softmax(attention_scores)
+        attention_weights = self.attention_weights_dropout(attention_weights)
+        # print(f"attention_weights: {attention_weights.shape}")
+
         # reshape to [batch_size, num_tokens, num_heads, head_dim]
-        attention = torch.matmul(scores, v).view(B, N, self.num_heads, self.head_dim)
+        attention = torch.matmul(attention_weights, v).view(
+            B, N, self.num_heads, self.head_dim
+        )
         # print(f"attention: {attention.shape}")
 
         # concate results from all heads (output shape: [batch_size, num_tokens, dim])
         attention = attention.view(B, N, self.model_dim)
 
         # project the output
-        out = self.output_projection(attention)
+        out = self.W_o(attention)
+
         return out
 
 
