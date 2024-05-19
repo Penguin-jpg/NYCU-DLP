@@ -52,8 +52,8 @@ class MaskGIT:
             z_indices = self.model.encode_to_z(image).to(self.device)
             # total number of mask token
             num_masked_tokens = mask_b.sum()
-            z_indices_predict = z_indices
-            mask_bc = mask_b
+            z_indices_predict = z_indices.clone()
+            mask_bc = mask_b.clone()
             mask_b = mask_b.to(device=self.device)
             mask_bc = mask_bc.to(device=self.device)
 
@@ -90,7 +90,7 @@ class MaskGIT:
                 dec_img_ori = (decoded_img[0] * std) + mean
                 imga[step + 1] = dec_img_ori  # get decoded image
 
-            ##decoded image of the sweet spot only, the test_results folder path will be the --predicted-path for fid score calculation
+            # decoded image of the sweet spot only, the test_results folder path will be the --predicted-path for fid score calculation
             vutils.save_image(
                 dec_img_ori, os.path.join("test_results", f"image_{i:03d}.png"), nrow=1
             )

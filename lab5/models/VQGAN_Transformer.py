@@ -127,7 +127,7 @@ class MaskGit(nn.Module):
         device = indices.get_device()
 
         # mask indices according to the given mask
-        masked_indices = indices
+        masked_indices = indices.clone()
         masked_indices[mask] = self.mask_token_id
 
         # predict the probability of each token
@@ -147,7 +147,9 @@ class MaskGit(nn.Module):
         # the ratio is t/T
         ratio = current_iteration / total_iteration
         # how many tokens to mask in next iteration (formula in section 3.2.4 of paper)
-        num_masked_tokens_next_iteration = math.ceil(
+        # I use floor instead of ceil here because at the last iteration, there should be no masked tokens left
+        # if we use ceil, the value may become 1, but ceil garantee the value to be 0
+        num_masked_tokens_next_iteration = math.floor(
             self.gamma_func(ratio, mode=mask_type) * num_masked_tokens
         )
 
@@ -171,9 +173,6 @@ class MaskGit(nn.Module):
 
         # all tokens with confidence lower than the n-th lowest confidence will be masked
         mask_bc = confidence < sorted_confidence[:, num_masked_tokens_next_iteration]
-        # if it is the last iteration, just remove the whole mask
-        if current_iteration == total_iteration:
-            mask_bc = torch.fill(mask_bc, False)
 
         return z_indices_predict, mask_bc
 
