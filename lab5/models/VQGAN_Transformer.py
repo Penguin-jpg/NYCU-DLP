@@ -141,9 +141,16 @@ class MaskGit(nn.Module):
 
         # FIND MAX probability for each token value
         z_indices_predict_prob, z_indices_predict = logits.max(dim=-1)
+        # put original indices to where mask is False
+        z_indices_predict[~mask] = indices[~mask]
 
         # the ratio is t/T
         ratio = current_iteration / total_iteration
+        # how many tokens to mask in next iteration (formula in section 3.2.4 of paper)
+        num_masked_tokens_next_iteration = math.ceil(
+            self.gamma_func(ratio, mode=mask_type) * num_masked_tokens
+        )
+
         # predicted probabilities add temperature annealing gumbel noise as confidence
         g = (
             torch.distributions.gumbel.Gumbel(0, 1)
@@ -159,16 +166,8 @@ class MaskGit(nn.Module):
         # define how much the iteration remain predicted tokens by mask scheduling
         # At the end of the decoding process, add back the original token values that were not masked to the predicted tokens
 
-        # put original indices to where mask is False
-        z_indices_predict[~mask] = indices[~mask]
-
-        # sort confidence (from high to low)
+        # sort confidence (from low to high)
         sorted_confidence, _ = confidence.sort(dim=-1)
-
-        # how many tokens to mask in next iteration (formula in section 3.2.4 of paper)
-        num_masked_tokens_next_iteration = math.ceil(
-            self.gamma_func(ratio, mode=mask_type) * num_masked_tokens
-        )
 
         # all tokens with confidence lower than the n-th lowest confidence will be masked
         mask_bc = confidence < sorted_confidence[:, num_masked_tokens_next_iteration]

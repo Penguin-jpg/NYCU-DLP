@@ -49,8 +49,7 @@ class MaskGIT:
         self.model.eval()
         with torch.no_grad():
             # masked tokens (shape: [batch_size, 16*16]
-            original_z_indices = self.model.encode_to_z(image).to(self.device)
-            z_indices = original_z_indices
+            z_indices = self.model.encode_to_z(image).to(self.device)
             # total number of mask token
             num_masked_tokens = mask_b.sum()
             z_indices_predict = z_indices
@@ -76,7 +75,7 @@ class MaskGIT:
                 )
 
                 # we can directly use ground truth tokens for the originally non-masked area
-                z_indices_predict[~mask_b] = original_z_indices[~mask_b]
+                z_indices_predict[~mask_b] = z_indices[~mask_b]
 
                 # static method yon can modify or not, make sure your visualization results are correct
                 mask_i = mask_bc.view(1, 16, 16)
