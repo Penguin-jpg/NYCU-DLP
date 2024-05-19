@@ -24,7 +24,6 @@ class TrainTransformer:
             torch.load(args.ckeckpoint_path) if args.start_from_epoch != 0 else None
         )
         self.prepare_training()
-        # self.load_checkpoint()
 
         # set label smoothing to 0.1 like the paper
         self.loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
@@ -43,8 +42,6 @@ class TrainTransformer:
         for i, images in enumerate(tqdm(train_dataloader)):
             images = images.to(self.device)
             logits, z_indices = self.model(images)
-            logits = logits.to(self.device)
-            z_indices = z_indices.to(self.device)
 
             # shape of logits is [batch_size, num_image_tokens, num_codebook_vectors + 1] and
             # the shape of z_indices is [batch_size, num_image_tokens]
@@ -52,15 +49,12 @@ class TrainTransformer:
             # reshape z_indices to [batch_size * num_image_tokens] to compute cross-entropy
             logits = logits.view(-1, logits.shape[-1])
             z_indices = z_indices.view(-1)
-            # print(f"logits: {logits.shape}")
-            # print(f"z_indices: {z_indices.shape}")
 
             loss = self.loss_fn(logits, z_indices)
             # if use gradient accumulation, normalize the loss by gradient accumulation steps
             if self.args.accum_grad != 0:
                 loss /= self.args.accum_grad
                 loss.backward()
-                train_loss += loss.item()
 
                 if (i + 1) % self.args.accum_grad == 0:
                     self.optim.step()
@@ -70,6 +64,8 @@ class TrainTransformer:
                 self.optim.zero_grad()
                 loss.backward()
                 self.optim.step()
+
+            train_loss += loss.item()
 
         train_loss /= len(train_dataloader)
         self.train_losses.append(train_loss)
@@ -81,12 +77,12 @@ class TrainTransformer:
         self.model.eval()
         os.makedirs("val_results", exist_ok=True)
 
+        mean = torch.tensor([0.4868, 0.4341, 0.3844], device=self.device).view(3, 1, 1)
+        std = torch.tensor([0.2620, 0.2527, 0.2543], device=self.device).view(3, 1, 1)
         val_loss = 0
         for i, images in enumerate(tqdm(val_dataloader)):
             images = images.to(self.device)
             logits, z_indices = self.model(images)
-            logits = logits.to(self.device)
-            z_indices = z_indices.to(self.device)
             logits = logits.view(-1, logits.shape[-1])
             z_indices = z_indices.view(-1)
             loss = self.loss_fn(logits, z_indices)
@@ -97,7 +93,7 @@ class TrainTransformer:
             z_q = z_q.permute(0, 3, 1, 2)
             decoded_image = self.model.vqgan.decode(z_q)
             vutils.save_image(
-                decoded_image,
+                (decoded_image * std) + mean,
                 os.path.join("val_results", f"image_{i:03d}.png"),
                 nrow=images.shape[0],
             )
@@ -111,22 +107,9 @@ class TrainTransformer:
         optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.args.learning_rate, betas=(0.9, 0.96)
         )
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=[30, 70, 90], gamma=0.1
-        )
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
 
         return optimizer, scheduler
-
-    def save_checkpoint(self, path):
-        torch.save(
-            {
-                "model": self.model.state_dict(),
-                "optimizer": self.optim.state_dict(),
-                "scheduler": self.scheduler.state_dict(),
-            },
-            path,
-        )
 
     def plot_loss(self):
         plt.title("Training and Validation Losses")
@@ -231,18 +214,15 @@ if __name__ == "__main__":
     # TODO2 step1-5:
     for epoch in range(args.start_from_epoch + 1, args.epochs + 1):
         train_loss = train_transformer.train_one_epoch(train_loader)
+        val_loss = train_transformer.eval_one_epoch(val_loader)
         # step scheduler for each epoch
         train_transformer.scheduler.step()
-        val_loss = train_transformer.eval_one_epoch(val_loader)
 
         if epoch % args.save_per_epoch == 0:
             torch.save(
                 train_transformer.model.transformer.state_dict(),
                 os.path.join("transformer_checkpoints", f"epoch_{epoch}.pt"),
             )
-            # train_transformer.save_checkpoint(
-            #     os.path.join("transformer_checkpoints", f"epoch_{epoch}.pt")
-            # )
 
         print(f"Epoch: {epoch}, train loss: {train_loss:.4f}, val loss: {val_loss:.4f}")
 

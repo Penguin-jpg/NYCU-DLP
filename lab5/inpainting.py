@@ -48,9 +48,9 @@ class MaskGIT:
 
         self.model.eval()
         with torch.no_grad():
-            # store the initial non-masked area, we can directly put the corresponding tokens back
-            initial_non_masked_area = ~mask_b.view(1, -1)
-            z_indices = self.model.encode_to_z(ori.unsqueeze(0)).to(self.device)
+            # masked tokens (shape: [batch_size, 16*16]
+            original_z_indices = self.model.encode_to_z(image).to(self.device)
+            z_indices = original_z_indices
             # total number of mask token
             num_masked_tokens = mask_b.sum()
             z_indices_predict = z_indices
@@ -67,18 +67,16 @@ class MaskGIT:
 
                 # indices masking will be performed in self.model.inpainting
                 z_indices_predict, mask_bc = self.model.inpainting(
-                    z_indices,
+                    z_indices_predict,
                     mask_bc,
                     num_masked_tokens,
                     step + 1,  # start from 1, otherwise the first iteration is wasted
-                    self.total_iter,  # minus one to fit 0-based index
+                    self.total_iter,
                     self.mask_func,
                 )
 
-                # # we can directly use ground truth tokens for the originally non-masked area
-                z_indices_predict[initial_non_masked_area] = z_indices[
-                    initial_non_masked_area
-                ]
+                # we can directly use ground truth tokens for the originally non-masked area
+                z_indices_predict[~mask_b] = original_z_indices[~mask_b]
 
                 # static method yon can modify or not, make sure your visualization results are correct
                 mask_i = mask_bc.view(1, 16, 16)
@@ -90,8 +88,7 @@ class MaskGIT:
                 z_q = self.model.vqgan.codebook.embedding(z_indices_predict).view(shape)
                 z_q = z_q.permute(0, 3, 1, 2)
                 decoded_img = self.model.vqgan.decode(z_q)
-                dec_img_ori = decoded_img[0]
-                # dec_img_ori = (decoded_img[0] * std) + mean
+                dec_img_ori = (decoded_img[0] * std) + mean
                 imga[step + 1] = dec_img_ori  # get decoded image
 
             ##decoded image of the sweet spot only, the test_results folder path will be the --predicted-path for fid score calculation
@@ -201,12 +198,9 @@ if __name__ == "__main__":
     t = MaskedImage(args)
     MaskGit_CONFIGS = yaml.safe_load(open(args.MaskGitConfig, "r"))
     maskgit = MaskGIT(args, MaskGit_CONFIGS)
-    # maskgit.model.inpainting(None, 0, 8, "cosine")
 
     i = 0
     for image, mask in zip(t.mi_ori, t.mask_ori):
-        # if i == 3:
-        #     break
         print(f"Batch {i} ", end="")
         image = image.to(device=args.device)
         mask = mask.to(device=args.device)

@@ -45,7 +45,6 @@ class MultiHeadAttention(nn.Module):
         q = q.view(B, self.num_heads, N, self.head_dim)
         k = k.view(B, self.num_heads, N, self.head_dim)
         v = v.view(B, self.num_heads, N, self.head_dim)
-        # print(f"q: {q.shape}")
 
         # self-attention can be decomposed into:
         # 1. scores = qk^T / sqrt{head_dim}
@@ -57,19 +56,16 @@ class MultiHeadAttention(nn.Module):
         # tranpose the last two dimensions of k to perform matrix multiplication
         # output shape: [batch_size, num_heads, num_tokens, num_tokens]
         attention_scores = torch.matmul(q, k.transpose(-1, -2)) / self.scale
-        # print(f"scores: {attention_scores.shape}")
 
         # use softmax to get probabilities as weights and apply dropout
         # output shape: [batch_size, num_heads, num_tokens, num_tokens]
         attention_weights = self.softmax(attention_scores)
         attention_weights = self.attention_weights_dropout(attention_weights)
-        # print(f"attention_weights: {attention_weights.shape}")
 
         # reshape to [batch_size, num_tokens, num_heads, head_dim]
         attention = torch.matmul(attention_weights, v).view(
             B, N, self.num_heads, self.head_dim
         )
-        # print(f"attention: {attention.shape}")
 
         # concate results from all heads (output shape: [batch_size, num_tokens, dim])
         attention = attention.view(B, N, self.model_dim)
@@ -78,6 +74,66 @@ class MultiHeadAttention(nn.Module):
         out = self.W_o(attention)
 
         return out
+
+
+# class MultiHeadAttention(nn.Module):
+#     def __init__(self, dim=768, num_heads=16, attn_drop=0.1):
+#         super(MultiHeadAttention, self).__init__()
+
+#         self.dim = dim
+#         self.num_heads = num_heads
+#         self.d_k = 768 // 16
+#         self.d_v = 768 // 16
+
+#         self.Wq = nn.Linear(dim, dim)
+#         self.Wk = nn.Linear(dim, dim)
+#         self.Wv = nn.Linear(dim, dim)
+
+#         self.Wo = nn.Linear(dim, dim)
+
+#         self.softmax = nn.Softmax(dim=-1)
+
+#         self.attn_drop = nn.Dropout(attn_drop)
+
+#     def forward(self, x):
+#         """Hint: input x tensor shape is (batch_size, num_image_tokens, dim),
+#         because the bidirectional transformer first will embed each token to dim dimension,
+#         and then pass to n_layers of encoders consist of Multi-Head Attention and MLP.
+#         # of head set 16
+#         Total d_k , d_v set to 768
+#         d_k , d_v for one head will be 768//16.
+#         """
+#         batch_size, num_image_tokens, dim = x.size()
+
+#         Query = (
+#             self.Wq(x)
+#             .view(batch_size, num_image_tokens, self.num_heads, self.d_k)
+#             .transpose(1, 2)
+#         )
+#         Key = (
+#             self.Wk(x)
+#             .view(batch_size, num_image_tokens, self.num_heads, self.d_k)
+#             .transpose(1, 2)
+#         )
+#         Value = (
+#             self.Wv(x)
+#             .view(batch_size, num_image_tokens, self.num_heads, self.d_v)
+#             .transpose(1, 2)
+#         )
+
+#         scores = torch.matmul(Query, Key.transpose(-2, -1)) / math.sqrt(self.d_k)
+#         attn = self.softmax(scores)
+#         attn = torch.matmul(attn, Value)
+#         attn = self.attn_drop(attn)
+
+#         output = (
+#             attn.transpose(1, 2)
+#             .contiguous()
+#             .view(batch_size, num_image_tokens, self.dim)
+#         )
+#         output = self.Wo(output)
+
+#         return output
 
 
 class MLP(nn.Sequential):
