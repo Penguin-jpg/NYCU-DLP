@@ -107,7 +107,7 @@ class TrainTransformer:
         optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.args.learning_rate, betas=(0.9, 0.96)
         )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.85)
 
         return optimizer, scheduler
 
