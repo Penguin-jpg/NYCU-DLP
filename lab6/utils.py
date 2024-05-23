@@ -1,5 +1,16 @@
+import numpy as np
+import random
+import torch
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
+
+
+def seed_everything(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
 
 
 def plot_gan_loss(g_losses, d_losses):

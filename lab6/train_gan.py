@@ -71,6 +71,7 @@ def train(
     device,
 ):
     d_losses, g_losses = [], []
+    best_accuracy = None
     for epoch in range(1, num_epochs + 1):
         d_loss, g_loss = train_one_epoch(
             generator,
@@ -82,22 +83,32 @@ def train(
         )
         d_losses.append(d_loss)
         g_losses.append(g_loss)
-        print(f"Epoch {epoch}/{num_epochs} d_loss: {d_loss} g_loss: {g_loss}")
+
+        accuracy = inference(
+            generator,
+            eval_model,
+            test_dataloader,
+            os.path.join(results_path, f"{epoch}.png"),
+            device,
+        )
+
+        print(
+            f"Epoch {epoch}/{num_epochs} d_loss: {d_loss} g_loss: {g_loss} accuracy: {accuracy*100:.2f}%"
+        )
+
+        if best_accuracy is None or accuracy > best_accuracy:
+            best_accuracy = accuracy
+            torch.save(
+                generator.state_dict(),
+                os.path.join(checkpoint_path, "generator_best.pth"),
+            )
+            print(f"Best accuracy so far: {best_accuracy*100:.2f}%")
 
         if epoch % save_interval == 0 or epoch == num_epochs - 1:
             torch.save(
                 generator.state_dict(),
                 os.path.join(checkpoint_path, f"generator_{epoch}.pth"),
             )
-
-            accuracy = inference(
-                generator,
-                eval_model,
-                test_dataloader,
-                os.path.join(results_path, f"{epoch}.png"),
-                device,
-            )
-            print(f"Epoch {epoch}/{num_epochs} Accuracy: {accuracy*100:.2f}%")
 
     return d_losses, g_losses
 

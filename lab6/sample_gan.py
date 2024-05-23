@@ -1,12 +1,11 @@
 from dataset import TestDataest
 from gan import Generator
 from evaluator import evaluation_model
-from utils import denormalize_to_0_and_1, show_grid_image
+from utils import seed_everything, denormalize_to_0_and_1, show_grid_image
 import os
 
 import torch
 from torch.utils.data import DataLoader
-import torchvision.transforms as T
 
 
 @torch.no_grad()
@@ -26,6 +25,8 @@ def inference(generator, eval_model, dataloader, filename, device):
 
 
 if __name__ == "__main__":
+    seed_everything(42)
+
     z_dim = 128
     base_channel = 512
     num_classes = 24
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     generator = Generator(z_dim, base_channel, num_classes)
     generator.load_state_dict(
         torch.load(
-            os.path.join("checkpoints", "gan", "generator_265.pth"), map_location="cpu"
+            os.path.join("checkpoints", "gan", "generator_best.pth"), map_location="cpu"
         )
     )
     generator.to(device)
