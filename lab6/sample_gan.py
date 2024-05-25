@@ -34,13 +34,17 @@ if __name__ == "__main__":
     os.makedirs(results_path, exist_ok=True)
 
     test_dataset1 = TestDataest(
-        test_json_path="test.json", label_json_path="objects.json"
+        test_json_path="test.json",
+        label_json_path="objects.json",
+        use_multi_hot=False,
     )
     test_dataloader1 = DataLoader(
         test_dataset1, batch_size=len(test_dataset1), shuffle=False
     )
     test_dataset2 = TestDataest(
-        test_json_path="new_test.json", label_json_path="objects.json"
+        test_json_path="new_test.json",
+        label_json_path="objects.json",
+        use_multi_hot=False,
     )
     test_dataloader1 = DataLoader(
         test_dataset2, batch_size=len(test_dataset2), shuffle=False

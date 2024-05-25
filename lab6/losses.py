@@ -1,4 +1,3 @@
-import torch
 import torch.nn.functional as F
 
 
@@ -16,3 +15,7 @@ def discriminator_loss(real, fake, real_logits, label):
     loss = (F.relu(1 - real) + F.relu(1 + fake)).mean()
     drift = (real**2).mean()
     return loss + hinge_loss(real_logits, label) + 0.001 * drift
+
+
+def mse_loss(predicted, ground_truth):
+    return F.mse_loss(predicted, ground_truth, reduction="mean")

@@ -39,3 +39,12 @@ def show_grid_image(images, num_rows, filename="result.png"):
     plt.savefig(filename)
     plt.show()
     plt.clf()
+
+
+def indices_to_multi_hot(indices, num_classes):
+    multi_hot = torch.zeros(indices.shape[0], num_classes)
+    for i in range(indices.shape[0]):
+        for index in indices[i]:
+            if index < num_classes:
+                multi_hot[i, index] = 1
+    return multi_hot
