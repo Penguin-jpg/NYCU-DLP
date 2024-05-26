@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import torch
-from torchvision.utils import make_grid
+from torchvision.utils import make_grid, save_image
 import matplotlib.pyplot as plt
 
 
@@ -10,7 +10,6 @@ def seed_everything(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
 
 
 def plot_gan_loss(g_losses, d_losses):
@@ -33,12 +32,18 @@ def denormalize_to_0_and_1(image, mean=None, std=None):
     return image * std + mean
 
 
-def show_grid_image(images, num_rows, filename="result.png"):
-    grid = make_grid(images, nrow=num_rows).cpu().permute(2, 1, 0).numpy()
-    plt.imshow(grid)
-    plt.savefig(filename)
-    plt.show()
-    plt.clf()
+def show_grid_image(images, num_cols, filename="result.png"):
+    grid = make_grid(images, nrow=num_cols).cpu()
+    save_image(grid, filename)
+
+
+def show_denoising_process(
+    images,
+    show_steps=[0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 999],
+    filename="denoising.png",
+):
+    grid = make_grid(images[show_steps], nrow=len(show_steps)).cpu()
+    save_image(grid, filename)
 
 
 def indices_to_multi_hot(indices, num_classes):

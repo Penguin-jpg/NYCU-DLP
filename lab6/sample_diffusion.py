@@ -7,6 +7,7 @@ from utils import (
     indices_to_multi_hot,
     denormalize_to_0_and_1,
     show_grid_image,
+    show_denoising_process,
 )
 import os
 
@@ -20,14 +21,14 @@ def inference(model, diffusion, eval_model, dataloader, filename, device):
     normalize = T.Compose([T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
     for labels in dataloader:
         labels = labels.to(device)
-        generated = diffusion.sample(model, labels, num_samples=labels.shape[0])
+        generated, _ = diffusion.sample(model, labels, num_samples=labels.shape[0])
         generated = denormalize_to_0_and_1(generated)
         accuracy = eval_model.eval(
             normalize(generated), indices_to_multi_hot(labels, 24)
         )
         show_grid_image(
             generated,
-            num_rows=4,
+            num_cols=8,
             filename=filename,
         )
 
@@ -91,7 +92,7 @@ if __name__ == "__main__":
     )
     model.load_state_dict(
         torch.load(
-            os.path.join("checkpoints", "diffusion", "model_best.pth"),
+            os.path.join("checkpoints", "diffusion", "model_best_epoch_2xx.pth"),
             map_location="cpu",
         )
     )
@@ -118,3 +119,13 @@ if __name__ == "__main__":
     )
     print(f"Accuracy of test.json: {accuracy1*100:.2f}%")
     print(f"Accuracy of new_test.json: {accuracy2*100:.2f}%")
+
+    # save a denosing image
+    # [“red sphere,” “yellow cube,” “cyan cylinder”]
+    labels = torch.tensor([[9, 7, 22]], dtype=torch.long).to(device)
+    _, images = diffusion.sample(model, labels, num_samples=1)
+    images = torch.stack(images).view(len(images), 3, 64, 64)
+    show_denoising_process(
+        denormalize_to_0_and_1(images),
+        filename=os.path.join(results_path, "denoising.png"),
+    )

@@ -4,6 +4,10 @@ from dataset import PAD
 import torch
 import torch.nn as nn
 
+# modified from:
+# 1. https://learnopencv.com/denoising-diffusion-probabilistic-models/
+# 2. https://github.com/lucidrains/denoising-diffusion-pytorch
+
 
 class SinusoidalPositionEmbeddings(nn.Module):
     def __init__(self, dim=128, theta=10000):

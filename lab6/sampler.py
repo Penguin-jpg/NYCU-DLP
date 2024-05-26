@@ -148,16 +148,17 @@ class Diffusion:
     @torch.inference_mode()
     def ddpm_reverse(self, model, labels, num_samples=16):
         x = torch.randn([num_samples, *self.image_shape], device=self.device)
-
+        images = []
         for t in tqdm(
             reversed(range(0, self.diffusion_steps)),
             desc="DDPM Sampling",
             colour="green",
             total=self.diffusion_steps,
         ):
-            x, _ = self.ddpm_sample(model, x, t, labels)
+            x, image = self.ddpm_sample(model, x, t, labels)
+            images.append(image)
 
-        return x
+        return x, images
 
     @torch.inference_mode()
     def ddim_sample(self, model, x_t, t, t_prev, labels):
@@ -205,6 +206,7 @@ class Diffusion:
     @torch.inference_mode()
     def ddim_reverse(self, model, labels, num_samples=16):
         x = torch.randn([num_samples, *self.image_shape], device=self.device)
+        images = []
 
         # equally split timesteps for sampling, for example,
         # 1000 diffusion steps with 250 sampling steps means that timesteps are [999, 995, 991, ...]
@@ -219,9 +221,10 @@ class Diffusion:
         for t, t_prev in tqdm(timestep_pairs, desc="DDIM Sampling", colour="green"):
             if t_prev < 0:
                 continue
-            x, _ = self.ddim_sample(model, x, t, t_prev, labels)
+            x, image = self.ddim_sample(model, x, t, t_prev, labels)
+            images.append(image)
 
-        return x
+        return x, images
 
     @torch.inference_mode()
     def sample(self, model, labels, num_samples=16):
