@@ -50,7 +50,6 @@ if __name__ == "__main__":
     image_shape = [3, 64, 64]
     eta = 0.0
     num_samples = 16
-    schedule = "linear"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     test_dataset1 = TestDataest(
@@ -76,7 +75,6 @@ if __name__ == "__main__":
         image_shape,
         False,
         eta,
-        schedule,
         device,
     )
 

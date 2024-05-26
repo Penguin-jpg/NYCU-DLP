@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
-import math
 
 
 def extract(value, t, x_shape):
@@ -21,16 +20,6 @@ def linear_schedule(timesteps):
     return torch.linspace(start_beta, end_beta, timesteps)
 
 
-# function modified from https://github.com/lucidrains/denoising-diffusion-pytorch/blob/main/denoising_diffusion_pytorch/denoising_diffusion_pytorch.py#L446
-def cosine_schedule(timesteps, s=8e-3):
-    steps = timesteps + 1
-    t = torch.linspace(0, timesteps, steps) / timesteps
-    alpha_bar = torch.cos((t + s) / (1 + s) * math.pi * 0.5) ** 2
-    alpha_bar = alpha_bar / alpha_bar[0]
-    betas = 1 - (alpha_bar[1:] / alpha_bar[:-1])
-    return torch.clip(betas, 0, 0.999)
-
-
 class Diffusion:
     def __init__(
         self,
@@ -39,18 +28,13 @@ class Diffusion:
         image_shape,
         use_ddim=False,
         eta=0.0,
-        schedule="linear",
         device=None,
     ):
         self.diffusion_steps = diffusion_steps
         self.sampling_steps = sampling_steps
         self.image_shape = image_shape
         self.use_ddim = use_ddim
-        self.betas = (
-            linear_schedule(diffusion_steps)
-            if schedule == "linear"
-            else cosine_schedule(diffusion_steps)
-        ).to(device)
+        self.betas = linear_schedule(diffusion_steps).to(device)
         self.alphas = 1.0 - self.betas
         self.alpha_bar = torch.cumprod(self.alphas, dim=0)
         self.sqrt_alpha = torch.sqrt(self.alphas)
@@ -59,7 +43,6 @@ class Diffusion:
         self.sqrt_recip_alpha_bar = torch.sqrt(1.0 / self.alpha_bar)
         self.sqrt_recip_alpha_bar_minus_one = torch.sqrt(1.0 / self.alpha_bar - 1.0)
         # this is for sqrt{alpha_bar_{t-1}}, pad to left so that we can get t-1 with t
-        # trick from https://github.com/hojonathanho/diffusion/blob/master/diffusion_tf/diffusion_utils.py#L68
         self.alpha_bar_prev = F.pad(self.alpha_bar[:-1], (1, 0), value=1.0)
 
         # variables for calculating the posterior q(x_{t-1}|x_t, x_0)
@@ -88,13 +71,13 @@ class Diffusion:
     def forward_process(self, x_0, t):
         # find mean and std of the distribution q(x_t|x_0) and use the formula
         # mean is sqrt{alpha_bar_t} * x_0
-        # std is sqrt{1 - alpha_bar_t} * epsilon (noise)
-        epsilon = torch.randn_like(x_0, device=self.device)
+        # std is sqrt{1 - alpha_bar_t} * noise
+        noise = torch.randn_like(x_0, device=self.device)
         sqrt_alpha_bar_t = extract(self.sqrt_alpha_bar, t, x_0.shape)
         sqrt_one_minus_alpha_bar_t = extract(
             self.sqrt_one_minus_alpha_bar, t, x_0.shape
         )
-        return sqrt_alpha_bar_t * x_0 + sqrt_one_minus_alpha_bar_t * epsilon, epsilon
+        return sqrt_alpha_bar_t * x_0 + sqrt_one_minus_alpha_bar_t * noise, noise
 
     def predict_x_0_from_noise(self, x_t, t, noise):
         # x_0 = sqrt{1 / alpha_bar_t} * (x_t - sqrt{1 - alpha_bar_t} * noise)

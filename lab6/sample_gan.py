@@ -17,7 +17,7 @@ def inference(generator, eval_model, dataloader, filename, device):
         accuracy = eval_model.eval(generated, labels)
         show_grid_image(
             denormalize_to_0_and_1(generated, mean=0.5, std=0.5),
-            num_rows=4,
+            num_cols=8,
             filename=filename,
         )
 

@@ -5,8 +5,9 @@ import torch
 import torch.nn as nn
 
 # modified from:
-# 1. https://learnopencv.com/denoising-diffusion-probabilistic-models/
-# 2. https://github.com/lucidrains/denoising-diffusion-pytorch
+# 1. https://github.com/hojonathanho/diffusion
+# 2. https://learnopencv.com/denoising-diffusion-probabilistic-models/
+# 3. https://github.com/lucidrains/denoising-diffusion-pytorch
 
 
 class SinusoidalPositionEmbeddings(nn.Module):
@@ -39,20 +40,18 @@ class AttentionBlock(nn.Module):
     def forward(self, x):
         B, _, H, W = x.shape
         h = self.group_norm(x)
-        h = h.reshape(B, self.channels, H * W).swapaxes(
-            1, 2
-        )  # [B, C, H, W] --> [B, C, H * W] --> [B, H*W, C]
-        h, _ = self.mhsa(h, h, h)  # [B, H*W, C]
-        h = h.swapaxes(2, 1).view(
-            B, self.channels, H, W
-        )  # [B, C, H*W] --> [B, C, H, W]
+        # [B, C, H, W] --> [B, C, H * W] --> [B, H*W, C]
+        h = h.view(B, -1, H * W).permute(0, 2, 1)
+        # [B, H*W, C]
+        h, _ = self.mhsa(h, h, h)
+        # [B, C, H*W] --> [B, C, H, W]
+        h = h.permute(0, 2, 1).view(B, -1, H, W)
         return x + h
 
 
 class ResnetBlock(nn.Module):
     def __init__(
         self,
-        *,
         in_channels,
         out_channels,
         dropout_rate=0.1,
@@ -104,15 +103,12 @@ class ResnetBlock(nn.Module):
             self.attention = nn.Identity()
 
     def forward(self, x, t):
-        # group 1
         h = self.act(self.gn1(x))
         h = self.conv1(h)
 
-        # group 2
         # add in timestep embedding
         h += self.linear1(self.act(t))[:, :, None, None]
 
-        # group 3
         h = self.act(self.gn2(h))
         h = self.dropout(h)
         h = self.conv2(h)
@@ -190,16 +186,14 @@ class UNet(nn.Module):
             out_channels=base_channels,
             kernel_size=3,
             stride=1,
-            padding="same",
+            padding=1,
         )
 
         num_resolutions = len(base_channels_multiples)
-
-        # Encoder part of the UNet. Dimension reduction.
+        # encoder
         self.encoder_blocks = nn.ModuleList()
         curr_channels = [base_channels]
         in_channels = base_channels
-
         resolution = 1
         for level in range(num_resolutions):
             out_channels = base_channels * base_channels_multiples[level]
@@ -221,7 +215,7 @@ class UNet(nn.Module):
                 curr_channels.append(in_channels)
                 resolution *= 2
 
-        # Bottleneck in between
+        # bottleneck
         self.bottleneck_blocks = nn.ModuleList(
             (
                 ResnetBlock(
@@ -241,9 +235,8 @@ class UNet(nn.Module):
             )
         )
 
-        # Decoder part of the UNet. Dimension restoration with skip-connections.
+        # decoder
         self.decoder_blocks = nn.ModuleList()
-
         for level in reversed(range(num_resolutions)):
             out_channels = base_channels * base_channels_multiples[level]
             for _ in range(num_res_blocks + 1):
@@ -271,7 +264,7 @@ class UNet(nn.Module):
                 out_channels=output_channels,
                 kernel_size=3,
                 stride=1,
-                padding="same",
+                padding=1,
             ),
         )
 
