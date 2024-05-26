@@ -36,7 +36,7 @@ if __name__ == "__main__":
     test_dataset1 = TestDataest(
         test_json_path="test.json",
         label_json_path="objects.json",
-        use_multi_hot=False,
+        use_multi_hot=True,
     )
     test_dataloader1 = DataLoader(
         test_dataset1, batch_size=len(test_dataset1), shuffle=False
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     test_dataset2 = TestDataest(
         test_json_path="new_test.json",
         label_json_path="objects.json",
-        use_multi_hot=False,
+        use_multi_hot=True,
     )
     test_dataloader1 = DataLoader(
         test_dataset2, batch_size=len(test_dataset2), shuffle=False
@@ -54,7 +54,9 @@ if __name__ == "__main__":
     generator = Generator(z_dim, base_channel, num_classes)
     generator.load_state_dict(
         torch.load(
-            os.path.join("checkpoints", "gan", "generator_best.pth"), map_location="cpu"
+            # os.path.join("checkpoints", "gan", "generator_best_epoch_650.pth"),
+            os.path.join("checkpoints", "gan", "generator_best_epoch_545.pth"),
+            map_location="cpu",
         )
     )
     generator.to(device)

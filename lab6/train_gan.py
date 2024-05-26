@@ -1,5 +1,6 @@
 import os
 import torchvision.transforms as T
+
 from gan import Generator, Discriminator
 from losses import generator_loss, discriminator_loss
 from dataset import IclevrDataset, TestDataest
@@ -100,7 +101,7 @@ def train(
             best_accuracy = accuracy
             torch.save(
                 generator.state_dict(),
-                os.path.join(checkpoint_path, "generator_best.pth"),
+                os.path.join(checkpoint_path, f"generator_best_epoch_{epoch}.pth"),
             )
             print(f"Best accuracy so far: {best_accuracy*100:.2f}%")
 
