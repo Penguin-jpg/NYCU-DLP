@@ -46,7 +46,7 @@ if __name__ == "__main__":
         label_json_path="objects.json",
         use_multi_hot=True,
     )
-    test_dataloader1 = DataLoader(
+    test_dataloader2 = DataLoader(
         test_dataset2, batch_size=len(test_dataset2), shuffle=False
     )
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     accuracy2 = inference(
         generator,
         eval_model,
-        test_dataloader1,
+        test_dataloader2,
         os.path.join(results_path, "new_test.png"),
         device,
     )
